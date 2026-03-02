@@ -493,7 +493,7 @@ This pattern means adding a new provider (offerwall or payout) is just:
     - Postback endpoint errors (5xx rate)
     - Postback processing failures
     - High error rates on auth endpoints
-29. Set up external uptime monitor (e.g., UptimeRobot free tier) pinging every 5 minutes to keep SSR Lambda warm and reduce cold starts
+29. Set up EventBridge Scheduler rule (`rate(5 minutes)`) to invoke SSR Lambda and reduce cold starts ($0/month within free tier)
 30. Enable Amplify WAF with rate-based rules and managed rule groups
 31. Test all postback endpoints with each provider's live test tools
 32. Smoke test full user flow: register → complete offer → earn points → withdraw

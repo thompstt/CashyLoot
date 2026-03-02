@@ -156,7 +156,7 @@ package.json                # Dependencies
 - Configure AWS SES production (verify domain, confirm sandbox removal)
 - Configure Amplify environment variables (all API keys, DB connection string, secrets)
 - Set up CloudWatch alarms (5xx rates, postback failures, auth errors)
-- Set up UptimeRobot (free) pinging every 5 min to keep Lambda warm
+- Set up EventBridge Scheduler rule (rate 5 min) to keep Lambda warm ($0/month)
 - Enable Amplify WAF with rate-based rules and managed rule groups
 - Smoke test full user flow end-to-end
 
