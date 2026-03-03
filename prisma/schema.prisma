@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// Better Auth Core Tables
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Custom fields for CashyLoot
+  balance          Int       @default(0) // Points balance (100 points = $1.00)
+  dateOfBirth      DateTime?
+  status           String    @default("active") // active, suspended, banned
+  ipAddress        String?
+  deviceFingerprint String?
+
+  sessions     Session[]
+  accounts     Account[]
+  transactions Transaction[]
+  withdrawals  Withdrawal[]
+  fraudEvents  FraudEvent[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// ============================================
+// CashyLoot Application Tables
+// ============================================
+
+model Transaction {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String   // "earn" or "withdraw"
+  amount     Int      // Points amount
+  provider   String?  // "adgem", "lootably", "bitlabs" (for earn type)
+  campaignId String?
+  status     String   @default("completed") // completed, pending, reversed
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("transaction")
+}
+
+model Withdrawal {
+  id            String    @id @default(cuid())
+  userId        String
+  method        String    // "paypal" or "gift_card"
+  amountPoints  Int
+  amountUsd     Float
+  paypalEmail   String?
+  giftCardType  String?   // "amazon", "visa", "steam", etc.
+  status        String    @default("pending") // pending, processing, completed, failed
+  processedAt   DateTime?
+  payoutProvider String?  // "tremendous" or "paypal"
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("withdrawal")
+}
+
+model PostbackLog {
+  id         String   @id @default(cuid())
+  rawPayload String   @db.Text
+  provider   String   // "adgem", "lootably", "bitlabs"
+  playerId   String?
+  requestId  String?  @unique // For deduplication
+  verified   Boolean  @default(false)
+  processed  Boolean  @default(false)
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([provider])
+  @@index([requestId])
+  @@map("postback_log")
+}
+
+model FraudEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventType String   // "rate_limit", "duplicate_postback", "vpn_detected", "multi_account", etc.
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([eventType])
+  @@map("fraud_event")
+}
