@@ -29,9 +29,10 @@ model User {
 
   sessions     Session[]
   accounts     Account[]
-  transactions Transaction[]
-  withdrawals  Withdrawal[]
-  fraudEvents  FraudEvent[]
+  transactions  Transaction[]
+  withdrawals   Withdrawal[]
+  fraudEvents   FraudEvent[]
+  vaultOpenings VaultOpening[]
 
   @@map("user")
 }
@@ -151,4 +152,18 @@ model FraudEvent {
   @@index([userId])
   @@index([eventType])
   @@map("fraud_event")
+}
+
+model VaultOpening {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier      String   // "bronze" | "silver" | "gold"
+  cost      Int      // points spent
+  prize     Int      // points won
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("vault_opening")
 }

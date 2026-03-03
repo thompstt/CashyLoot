@@ -176,7 +176,7 @@
 
 /* Gradient CTA button */
 .btn-gradient {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
   color: white;
   border: none;
   box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
@@ -184,7 +184,7 @@
 }
 .btn-gradient:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 28px rgba(34, 211, 238, 0.3), 0 4px 20px rgba(139, 92, 246, 0.25);
 }
 
 /* Section label */
@@ -193,4 +193,22 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 600;
+}
+
+/* Ticker animation */
+@keyframes scroll-ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 80px, black calc(100% - 80px), transparent);
+  mask-image: linear-gradient(90deg, transparent, black 80px, black calc(100% - 80px), transparent);
+}
+
+/* Referral tier highlight */
+.tier-highlighted {
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.12), 0 0 40px rgba(139, 92, 246, 0.06);
+  background: rgba(139, 92, 246, 0.06);
 }

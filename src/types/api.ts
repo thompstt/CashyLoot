@@ -56,6 +56,21 @@ export interface PostbackData {
   rawPayload: string;
 }
 
+// POST /api/vault/open
+export type VaultTier = "bronze" | "silver" | "gold";
+
+export interface VaultOpenRequest {
+  tier: VaultTier;
+}
+
+export interface VaultOpenResponse {
+  success: boolean;
+  prize: number; // points won
+  cost: number; // points spent
+  newBalance: number; // updated balance
+  error?: string;
+}
+
 // Payout result (from Tremendous/PayPal)
 export interface PayoutResult {
   success: boolean;

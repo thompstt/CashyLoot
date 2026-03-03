@@ -3,27 +3,36 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, Coins, LogOut, LayoutDashboard } from "lucide-react";
+import { Menu, X, CircleDollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useSession, signOut } from "@/lib/auth-client";
 
-const navLinks = [
-  { href: "/offers", label: "Earn" },
-  { href: "/withdraw", label: "Rewards" },
-];
+function getNavLinks(isSignedIn: boolean, isHome: boolean) {
+  if (isSignedIn) {
+    return [
+      { href: "/offers", label: "Earn" },
+      { href: "/withdraw", label: "Rewards" },
+      { href: "/referral", label: "Refer" },
+    ];
+  }
+  // Signed out: anchor to landing page sections
+  const prefix = isHome ? "" : "/";
+  return [
+    { href: `${prefix}#offers`, label: "Earn" },
+    { href: `${prefix}#rewards`, label: "Rewards" },
+    { href: `${prefix}#referral`, label: "Refer" },
+  ];
+}
 
 export function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
+
+  const isHome = pathname === "/";
+  const isSignedIn = !!session;
+  const navLinks = getNavLinks(isSignedIn, isHome);
 
   const isActive = (href: string) => pathname === href;
 
@@ -32,63 +41,49 @@ export function Navbar() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-display font-extrabold text-xl tracking-tight">
-          <Coins className="h-6 w-6 text-purple" />
+          <CircleDollarSign className="h-6 w-6 text-purple" />
           <span className="text-gradient-main">CashyLoot</span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-[0.8rem] font-medium transition-colors hover:text-primary ${
-                isActive(link.href)
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+          {navLinks.map((link) => {
+            const isAnchor = link.href.includes("#");
+            const El = isAnchor ? "a" : Link;
+            return (
+              <El
+                key={link.label}
+                href={link.href}
+                className={`text-[0.8rem] font-medium transition-colors hover:text-primary ${
+                  !isAnchor && isActive(link.href)
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {link.label}
+              </El>
+            );
+          })}
         </nav>
 
         {/* Desktop auth */}
         <div className="hidden md:flex items-center gap-3">
-          {session ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback>
-                      {session.user.name?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="flex items-center gap-2">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => signOut()}
-                  className="flex items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {isSignedIn ? (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+              <Button size="sm" className="btn-gradient" asChild>
+                <Link href="/withdraw">Withdraw</Link>
+              </Button>
+            </>
           ) : (
             <>
               <Button variant="ghost" asChild>
-                <Link href="/login">Log In</Link>
+                <Link href="/login">Log in</Link>
               </Button>
               <Button className="btn-gradient" asChild>
-                <Link href="/register">Sign Up</Link>
+                <Link href="/register">Get started</Link>
               </Button>
             </>
           )}
@@ -103,19 +98,23 @@ export function Navbar() {
           </SheetTrigger>
           <SheetContent side="right" className="w-72">
             <nav className="flex flex-col gap-4 mt-8">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className={`text-lg font-medium ${
-                    isActive(link.href) ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              {session ? (
+              {navLinks.map((link) => {
+                const isAnchor = link.href.includes("#");
+                const El = isAnchor ? "a" : Link;
+                return (
+                  <El
+                    key={link.label}
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className={`text-lg font-medium ${
+                      !isAnchor && isActive(link.href) ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
+                    {link.label}
+                  </El>
+                );
+              })}
+              {isSignedIn ? (
                 <>
                   <Link
                     href="/dashboard"
@@ -124,6 +123,11 @@ export function Navbar() {
                   >
                     Dashboard
                   </Link>
+                  <Button className="btn-gradient" asChild>
+                    <Link href="/withdraw" onClick={() => setOpen(false)}>
+                      Withdraw
+                    </Link>
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -138,12 +142,12 @@ export function Navbar() {
                 <div className="flex flex-col gap-2 mt-4">
                   <Button variant="outline" asChild>
                     <Link href="/login" onClick={() => setOpen(false)}>
-                      Log In
+                      Log in
                     </Link>
                   </Button>
                   <Button className="btn-gradient" asChild>
                     <Link href="/register" onClick={() => setOpen(false)}>
-                      Sign Up
+                      Get started
                     </Link>
                   </Button>
                 </div>

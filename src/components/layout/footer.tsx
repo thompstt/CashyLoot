@@ -29,6 +29,14 @@ export function Footer() {
             <Link href="/privacy#do-not-sell" className="hover:text-foreground transition-colors">
               Do Not Sell My Info
             </Link>
+            <Separator orientation="vertical" className="h-4" />
+            <Link href="/cookies" className="hover:text-foreground transition-colors">
+              Cookie Policy
+            </Link>
+            <Separator orientation="vertical" className="h-4" />
+            <a href="mailto:support@cashyloot.com" className="hover:text-foreground transition-colors">
+              Contact
+            </a>
           </nav>
         </div>
 

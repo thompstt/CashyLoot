@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -7,8 +8,9 @@ import {
   Gamepad2,
   ShoppingBag,
   DollarSign,
-  Coins,
+  CircleDollarSign,
 } from "lucide-react";
+import VaultSection from "@/components/vault/vault-section";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -31,6 +33,12 @@ export default async function WithdrawPage() {
     redirect("/login");
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { balance: true },
+  });
+  const balance = user?.balance ?? 0;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -42,9 +50,9 @@ export default async function WithdrawPage() {
 
       {/* Current Balance */}
       <Card className="mb-8 bg-gradient-to-br from-purple/[0.07] to-cyan/[0.035] border-purple/10">
-        <CardContent className="flex items-center gap-4 pt-6">
+        <CardContent className="flex items-center gap-4 py-2">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Coins className="h-6 w-6 text-primary" />
+            <CircleDollarSign className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Your Balance</p>
@@ -52,6 +60,9 @@ export default async function WithdrawPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mystery Vaults */}
+      <VaultSection balance={balance} />
 
       {/* Gift Cards */}
       <div className="mb-8">
@@ -65,7 +76,7 @@ export default async function WithdrawPage() {
               key={card.name}
               className="card-glow cursor-pointer"
             >
-              <CardContent className="flex items-center gap-4 pt-6">
+              <CardContent className="flex items-center gap-4 py-2">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                   <card.icon className="h-5 w-5 text-muted-foreground" />
                 </div>
