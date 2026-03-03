@@ -7,14 +7,14 @@ export default function PrivacyPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <CardTitle className="text-3xl">Privacy Policy</CardTitle>
+            <CardTitle className="text-3xl font-display tracking-tight">Privacy Policy</CardTitle>
             <Badge variant="secondary">Placeholder</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Last updated: March 2026
           </p>
         </CardHeader>
-        <CardContent className="prose prose-sm max-w-none dark:prose-invert">
+        <CardContent className="prose prose-sm max-w-none prose-invert">
           <p className="text-muted-foreground italic">
             This is placeholder text. Replace with your actual Privacy Policy
             generated from Termly or TermsFeed before launching.

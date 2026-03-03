@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { CookieBanner } from "@/components/layout/cookie-banner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -28,11 +30,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+        className={`${inter.variable} ${plusJakarta.variable} antialiased min-h-screen flex flex-col`}
       >
+        <div className="bg-mesh" aria-hidden="true">
+          <div className="orb orb-purple" />
+          <div className="orb orb-cyan" />
+          <div className="orb orb-green" />
+        </div>
         <Navbar />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 relative z-[1]">{children}</main>
         <Footer />
+        <CookieBanner />
       </body>
     </html>
   );

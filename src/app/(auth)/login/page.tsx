@@ -45,7 +45,7 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
+        <CardTitle className="text-2xl font-display tracking-tight">Welcome Back</CardTitle>
         <CardDescription>Log in to your CashyLoot account</CardDescription>
       </CardHeader>
       <CardContent>
@@ -84,7 +84,7 @@ export default function LoginPage() {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full btn-gradient" disabled={loading}>
             {loading ? "Logging in..." : "Log In"}
           </Button>
         </form>

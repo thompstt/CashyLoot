@@ -85,7 +85,7 @@ export default function RegisterPage() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Create Account</CardTitle>
+        <CardTitle className="text-2xl font-display tracking-tight">Create Account</CardTitle>
         <CardDescription>
           Sign up for CashyLoot and start earning rewards
         </CardDescription>
@@ -168,7 +168,7 @@ export default function RegisterPage() {
             <span>Bot protection by Cloudflare</span>
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full btn-gradient" disabled={loading}>
             {loading ? "Creating account..." : "Create Account"}
           </Button>
         </form>

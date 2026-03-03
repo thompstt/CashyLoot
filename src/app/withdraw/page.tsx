@@ -34,28 +34,28 @@ export default async function WithdrawPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Withdraw</h1>
+        <h1 className="text-3xl font-display font-bold tracking-tight">Withdraw</h1>
         <p className="text-muted-foreground mt-2">
           Redeem your points for gift cards or PayPal cash.
         </p>
       </div>
 
       {/* Current Balance */}
-      <Card className="mb-8">
+      <Card className="mb-8 bg-gradient-to-br from-purple/[0.07] to-cyan/[0.035] border-purple/10">
         <CardContent className="flex items-center gap-4 pt-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Coins className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Your Balance</p>
-            <p className="text-2xl font-bold">0 Points ($0.00)</p>
+            <p className="text-2xl font-display font-bold">0 Points ($0.00)</p>
           </div>
         </CardContent>
       </Card>
 
       {/* Gift Cards */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Gift Cards</h2>
+        <h2 className="text-xl font-display font-semibold mb-4">Gift Cards</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Powered by Tremendous. $0 platform fee.
         </p>
@@ -63,7 +63,7 @@ export default async function WithdrawPage() {
           {giftCards.map((card) => (
             <Card
               key={card.name}
-              className="cursor-pointer transition-colors hover:border-primary/50"
+              className="card-glow cursor-pointer"
             >
               <CardContent className="flex items-center gap-4 pt-6">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
@@ -86,7 +86,7 @@ export default async function WithdrawPage() {
 
       {/* PayPal */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">PayPal Cash</h2>
+        <h2 className="text-xl font-display font-semibold mb-4">PayPal Cash</h2>
         <Card>
           <CardHeader>
             <div className="flex items-center gap-4">
@@ -94,7 +94,7 @@ export default async function WithdrawPage() {
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
               </div>
               <div>
-                <CardTitle className="text-lg">PayPal Payout</CardTitle>
+                <CardTitle className="text-lg font-display">PayPal Payout</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Cash out directly to your PayPal account
                 </p>

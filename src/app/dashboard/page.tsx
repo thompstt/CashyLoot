@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-display font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
           Welcome back, {user.name || "User"}
         </p>
@@ -29,43 +29,43 @@ export default async function DashboardPage() {
 
       <div className="grid md:grid-cols-3 gap-6 mb-8">
         {/* Balance Card */}
-        <Card>
+        <Card className="card-glow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Your Balance
             </CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
+            <Coins className="h-4 w-4 text-green" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0 Points</div>
+            <div className="text-3xl font-display font-bold">0 Points</div>
             <p className="text-sm text-muted-foreground mt-1">($0.00)</p>
           </CardContent>
         </Card>
 
         {/* Offers Completed */}
-        <Card>
+        <Card className="card-glow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Offers Completed
             </CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+            <ClipboardList className="h-4 w-4 text-purple" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-display font-bold">0</div>
             <p className="text-sm text-muted-foreground mt-1">All time</p>
           </CardContent>
         </Card>
 
         {/* Total Earned */}
-        <Card>
+        <Card className="card-glow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Earned
             </CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <Wallet className="h-4 w-4 text-cyan" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">$0.00</div>
+            <div className="text-3xl font-display font-bold">$0.00</div>
             <p className="text-sm text-muted-foreground mt-1">Lifetime</p>
           </CardContent>
         </Card>
@@ -73,7 +73,7 @@ export default async function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="grid sm:grid-cols-2 gap-4 mb-8">
-        <Button size="lg" className="h-auto py-4" asChild>
+        <Button size="lg" className="btn-gradient h-auto py-4" asChild>
           <Link href="/offers" className="flex items-center gap-3">
             <ClipboardList className="h-5 w-5" />
             <div className="text-left">
@@ -102,7 +102,7 @@ export default async function DashboardPage() {
       {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
+          <CardTitle className="font-display">Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
           <Separator className="mb-4" />

@@ -7,14 +7,14 @@ export default function TermsPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <CardTitle className="text-3xl">Terms of Service</CardTitle>
+            <CardTitle className="text-3xl font-display tracking-tight">Terms of Service</CardTitle>
             <Badge variant="secondary">Placeholder</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Last updated: March 2026
           </p>
         </CardHeader>
-        <CardContent className="prose prose-sm max-w-none dark:prose-invert">
+        <CardContent className="prose prose-sm max-w-none prose-invert">
           <p className="text-muted-foreground italic">
             This is placeholder text. Replace with your actual Terms of Service
             generated from Termly or TermsFeed before launching.

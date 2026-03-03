@@ -28,12 +28,12 @@ export function Navbar() {
   const isActive = (href: string) => pathname === href;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-[rgba(5,5,9,0.72)] backdrop-blur-[24px] backdrop-saturate-[180%]">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-          <Coins className="h-6 w-6 text-primary" />
-          CashyLoot
+        <Link href="/" className="flex items-center gap-2 font-display font-extrabold text-xl tracking-tight">
+          <Coins className="h-6 w-6 text-purple" />
+          <span className="text-gradient-main">CashyLoot</span>
         </Link>
 
         {/* Desktop nav */}
@@ -42,7 +42,7 @@ export function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-primary ${
+              className={`text-[0.8rem] font-medium transition-colors hover:text-primary ${
                 isActive(link.href)
                   ? "text-primary"
                   : "text-muted-foreground"
@@ -87,7 +87,7 @@ export function Navbar() {
               <Button variant="ghost" asChild>
                 <Link href="/login">Log In</Link>
               </Button>
-              <Button asChild>
+              <Button className="btn-gradient" asChild>
                 <Link href="/register">Sign Up</Link>
               </Button>
             </>
@@ -141,7 +141,7 @@ export function Navbar() {
                       Log In
                     </Link>
                   </Button>
-                  <Button asChild>
+                  <Button className="btn-gradient" asChild>
                     <Link href="/register" onClick={() => setOpen(false)}>
                       Sign Up
                     </Link>
