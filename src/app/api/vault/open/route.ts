@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { rollPrize, getVaultConfig, VALID_TIERS } from "@/lib/vault";
-import type { VaultOpenRequest, VaultOpenResponse, VaultTier } from "@/types/api";
+import type { VaultOpenResponse, VaultTier } from "@/types/api";
+
+const vaultOpenSchema = z.object({
+  tier: z.enum(["bronze", "silver", "gold"]),
+});
 
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({
@@ -16,24 +21,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: VaultOpenRequest;
-  try {
-    body = await request.json();
-  } catch {
+  const parseResult = vaultOpenSchema.safeParse(await request.json().catch(() => null));
+
+  if (!parseResult.success) {
     return NextResponse.json(
       { success: false, prize: 0, cost: 0, newBalance: 0, error: "Invalid request body" } satisfies VaultOpenResponse,
       { status: 400 },
     );
   }
 
-  if (!VALID_TIERS.includes(body.tier as VaultTier)) {
-    return NextResponse.json(
-      { success: false, prize: 0, cost: 0, newBalance: 0, error: "Invalid tier" } satisfies VaultOpenResponse,
-      { status: 400 },
-    );
-  }
-
-  const tier = body.tier;
+  const { tier } = parseResult.data;
   const config = getVaultConfig(tier);
   const prize = rollPrize(tier);
   const netChange = prize - config.cost;
