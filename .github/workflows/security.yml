@@ -78,8 +78,6 @@ jobs:
     timeout-minutes: 10
     container:
       image: semgrep/semgrep
-    # Skip PRs created by dependabot to avoid permission issues
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -109,8 +107,6 @@ jobs:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Skip dependabot PRs — restricted token can't read PR commits
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -121,6 +117,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false # Avoid permission issues on dependabot PRs
 
       - name: Upload SARIF to GitHub Security tab
         if: always()
@@ -138,7 +135,6 @@ jobs:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
