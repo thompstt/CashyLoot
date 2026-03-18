@@ -1,0 +1,125 @@
+# Security CI/CD Pipeline
+# Runs on every push to main and every PR targeting main.
+# Three parallel jobs: dependency scanning (Snyk), SAST (Semgrep), secret detection (Gitleaks).
+# See: docs/superpowers/specs/2026-03-18-security-cicd-pipeline-design.md
+
+name: Security Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read # Required for private repo SARIF uploads
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Job 1: Snyk — Software Composition Analysis
+  # Scans npm dependencies for known vulnerabilities.
+  # ──────────────────────────────────────────────
+  snyk-scan:
+    name: Snyk Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Note: snyk/actions/node@master is a mutable ref (Snyk does not publish
+      # versioned tags). Dependabot's github-actions ecosystem will flag if the
+      # underlying commit changes. Pin to a SHA for stricter reproducibility.
+      - name: Run Snyk security scan
+        id: snyk
+        uses: snyk/actions/node@master
+        continue-on-error: true # Don't skip SARIF upload when vulns found
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --sarif-file-output=snyk.sarif
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true # Gracefully handle if GHAS is unavailable
+        with:
+          sarif_file: snyk.sarif
+
+      - name: Fail if Snyk found vulnerabilities
+        if: steps.snyk.outcome == 'failure'
+        run: |
+          echo "::error::Snyk found high/critical vulnerabilities in dependencies."
+          echo "Check the Actions log above or the GitHub Security tab for details."
+          exit 1
+
+  # ──────────────────────────────────────────────
+  # Job 2: Semgrep — Static Application Security Testing
+  # Pattern-based SAST scanning with community rulesets.
+  # Uses semgrep scan (not semgrep ci) — no Semgrep Platform token needed.
+  # ──────────────────────────────────────────────
+  semgrep-scan:
+    name: Semgrep SAST Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: semgrep/semgrep
+    # Skip PRs created by dependabot to avoid permission issues
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep scan
+        run: |
+          semgrep scan \
+            --config "p/nextjs" \
+            --config "p/typescript" \
+            --config "p/owasp-top-ten" \
+            --sarif --output semgrep.sarif \
+            src/
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true # Gracefully handle if GHAS is unavailable
+        with:
+          sarif_file: semgrep.sarif
+
+  # ──────────────────────────────────────────────
+  # Job 3: Gitleaks — Secret Detection
+  # Scans code and git history for leaked secrets.
+  # Full history on push to main, diff-only on PRs.
+  # ──────────────────────────────────────────────
+  secret-scan:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive secret scanning
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
+        continue-on-error: true # Gracefully handle if GHAS is unavailable
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
