@@ -1,6 +1,7 @@
 # Security CI/CD Pipeline
-# Runs on every push to main and every PR targeting main.
-# Three parallel jobs: dependency scanning (Snyk), SAST (Semgrep), secret detection (Gitleaks).
+# Runs on every push to main/dev and every PR targeting main/dev.
+# Four parallel jobs: dependency scanning (Snyk), pattern SAST (Semgrep),
+# dataflow SAST (CodeQL), secret detection (Gitleaks).
 # See: docs/superpowers/specs/2026-03-18-security-cicd-pipeline-design.md
 
 name: Security Pipeline
@@ -127,3 +128,27 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
+
+  # ──────────────────────────────────────────────
+  # Job 4: CodeQL — Dataflow SAST
+  # Deep taint analysis tracking input from source to sink
+  # across function boundaries. Free on public repos.
+  # ──────────────────────────────────────────────
+  codeql-scan:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+          build-mode: none
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v3
