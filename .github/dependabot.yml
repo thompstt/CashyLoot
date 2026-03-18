@@ -1,0 +1,21 @@
+# Dependabot configuration
+# Auto-create PRs for vulnerable npm dependencies and outdated GitHub Actions.
+# See: docs/superpowers/specs/2026-03-18-security-cicd-pipeline-design.md
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
