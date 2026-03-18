@@ -1,0 +1,8 @@
+# Gitleaks configuration — suppress false positives from placeholder values
+# See: docs/superpowers/specs/2026-03-18-security-cicd-pipeline-design.md
+
+[allowlist]
+  paths = [
+    '''.env\.example''',
+    '''.gitleaks\.toml'''
+  ]
