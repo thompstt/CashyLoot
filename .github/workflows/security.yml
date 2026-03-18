@@ -25,6 +25,8 @@ jobs:
     name: Snyk Dependency Scan
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Skip dependabot PRs — secrets aren't passed to dependabot runs
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -106,6 +108,8 @@ jobs:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Skip dependabot PRs — restricted token can't read PR commits
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
