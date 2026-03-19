@@ -9,6 +9,7 @@ frontend:
       commands:
         - env | grep -e DATABASE_URL -e BETTER_AUTH_ -e ADGEM_ -e LOOTABLY_ -e BITLABS_ -e TREMENDOUS_ -e PAYPAL_ -e TURNSTILE_ -e NEXT_PUBLIC_ >> .env.production
         - npx prisma generate
+        - npx prisma db push --skip-generate
         - npm run build
         - cp .env.production .next/.env.production
   artifacts:
