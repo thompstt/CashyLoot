@@ -2,7 +2,7 @@ import "server-only";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { env } from "@/env";
 
-const ses = new SESClient({ region: env.AWS_SES_REGION });
+const ses = new SESClient({ region: env.SES_REGION });
 
 function escapeHtml(str: string): string {
   return str.replace(/[&<>"']/g, (c) =>
@@ -14,7 +14,7 @@ export async function sendVerificationEmail(to: string, name: string | undefined
   const displayName = escapeHtml(name || "there");
 
   const command = new SendEmailCommand({
-    Source: env.AWS_SES_FROM_EMAIL,
+    Source: env.SES_FROM_EMAIL,
     Destination: {
       ToAddresses: [to],
     },
