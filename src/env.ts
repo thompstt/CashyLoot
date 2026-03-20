@@ -4,6 +4,9 @@ const serverSchema = z.object({
   DATABASE_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(1),
   BETTER_AUTH_URL: z.string().url(),
+  TURNSTILE_SECRET_KEY: z.string().min(1),
+  AWS_SES_REGION: z.string().min(1),
+  AWS_SES_FROM_EMAIL: z.string().email(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
