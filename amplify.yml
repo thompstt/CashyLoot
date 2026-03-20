@@ -7,7 +7,7 @@ frontend:
         - npm ci
     build:
       commands:
-        - env | grep -e DATABASE_URL -e BETTER_AUTH_ -e ADGEM_ -e LOOTABLY_ -e BITLABS_ -e TREMENDOUS_ -e PAYPAL_ -e TURNSTILE_ -e NEXT_PUBLIC_ >> .env.production
+        - env | grep -e DATABASE_URL -e BETTER_AUTH_ -e ADGEM_ -e LOOTABLY_ -e BITLABS_ -e TREMENDOUS_ -e PAYPAL_ -e TURNSTILE_ -e AWS_SES_ -e NEXT_PUBLIC_ >> .env.production
         - npx prisma generate
         - npx prisma db push
         - npm run build
