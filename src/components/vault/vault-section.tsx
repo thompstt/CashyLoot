@@ -115,12 +115,7 @@ export default function VaultSection({ balance }: { balance: number }) {
   const activeVault = dialog.stage !== "idle" ? dialog.vault : null;
 
   return (
-    <div className="mb-8">
-      <h2 className="text-xl font-display font-semibold mb-1">Mystery Vaults</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Spend points to crack open a vault and win a random prize.
-      </p>
-
+    <div>
       <div className="grid sm:grid-cols-3 gap-4">
         {VAULTS.map((vault) => (
           <Card

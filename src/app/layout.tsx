@@ -32,11 +32,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${plusJakarta.variable} antialiased min-h-screen flex flex-col`}
       >
-        <div className="bg-mesh" aria-hidden="true">
-          <div className="orb orb-purple" />
-          <div className="orb orb-cyan" />
-          <div className="orb orb-green" />
-        </div>
+        <div className="bg-mesh" aria-hidden="true" />
         <Navbar />
         <main className="flex-1 relative z-[1]">{children}</main>
         <Footer />
