@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signUp } from "@/lib/auth-client";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +17,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ShieldCheck } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -26,6 +27,9 @@ export default function RegisterPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
 
   function validateAge(dob: string): boolean {
     const birthDate = new Date(dob);
@@ -65,21 +69,33 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!turnstileToken) {
+      setError("Please complete the bot verification.");
+      return;
+    }
+
     setLoading(true);
 
-    const { error: signUpError } = await signUp.email({
-      email,
-      password,
-      name,
-    });
+    const { error: signUpError } = await signUp.email(
+      {
+        email,
+        password,
+        name,
+      },
+      {
+        headers: { "x-turnstile-token": turnstileToken },
+      }
+    );
 
     if (signUpError) {
       setError(signUpError.message || "Registration failed. Please try again.");
       setLoading(false);
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       return;
     }
 
-    router.push("/dashboard");
+    router.push(`/verify-email?email=${encodeURIComponent(email)}`);
   }
 
   return (
@@ -162,13 +178,21 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Turnstile placeholder — real integration in Phase 1 */}
-          <div className="flex items-center gap-2 rounded-md border p-3 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4" />
-            <span>Bot protection by Cloudflare</span>
-          </div>
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ""}
+            onSuccess={setTurnstileToken}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => setTurnstileError(true)}
+            options={{ theme: "dark" }}
+          />
+          {turnstileError && (
+            <p className="text-sm text-destructive">
+              Bot verification failed to load. Please refresh the page.
+            </p>
+          )}
 
-          <Button type="submit" className="w-full btn-gradient" disabled={loading}>
+          <Button type="submit" className="w-full btn-gradient" disabled={loading || !turnstileToken}>
             {loading ? "Creating account..." : "Create Account"}
           </Button>
         </form>
