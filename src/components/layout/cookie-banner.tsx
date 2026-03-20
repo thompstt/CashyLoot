@@ -28,7 +28,7 @@ export function CookieBanner() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-500">
-      <div className="bg-[rgba(8,8,15,0.95)] backdrop-blur-[16px] border-t border-border">
+      <div className="bg-[rgba(8,8,15,0.98)] border-t border-border">
         <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-muted-foreground text-center sm:text-left">
             <p>
