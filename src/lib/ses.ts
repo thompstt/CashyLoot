@@ -32,7 +32,7 @@ export async function sendVerificationEmail(to: string, name: string | undefined
               <a href="${verificationUrl}" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6, #22d3ee); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 16px 0;">
                 Verify Email
               </a>
-              <p style="color: #666; font-size: 14px;">Or copy this link: ${verificationUrl}</p>
+              <p style="color: #666; font-size: 14px;">Or copy this link: ${escapeHtml(verificationUrl)}</p>
               <p style="color: #999; font-size: 12px; margin-top: 32px;">
                 If you didn't create an account on CashyLoot, you can ignore this email.
               </p>
