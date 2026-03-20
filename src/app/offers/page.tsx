@@ -16,6 +16,9 @@ import {
   Film,
   CreditCard,
   Gift,
+  Clock,
+  ArrowUpDown,
+  Flame,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +33,8 @@ type Category =
   | "shopping"
   | "sign-ups";
 
+type SortOption = "highest" | "quickest" | "newest";
+
 const categories: { value: Category; label: string; icon: React.ElementType }[] = [
   { value: "all", label: "All", icon: LayoutGrid },
   { value: "surveys", label: "Surveys", icon: MessageSquare },
@@ -38,6 +43,12 @@ const categories: { value: Category; label: string; icon: React.ElementType }[] 
   { value: "videos", label: "Videos", icon: PlayCircle },
   { value: "shopping", label: "Shopping", icon: ShoppingCart },
   { value: "sign-ups", label: "Sign-ups", icon: UserPlus },
+];
+
+const sortOptions: { value: SortOption; label: string }[] = [
+  { value: "highest", label: "Highest paying" },
+  { value: "quickest", label: "Quickest" },
+  { value: "newest", label: "Newest" },
 ];
 
 type Provider = "AdGem" | "Lootably" | "BitLabs";
@@ -55,8 +66,11 @@ interface MockOffer {
   category: Category;
   provider: Provider;
   points: number;
+  minutes: number;
   icon: React.ElementType;
   iconColor: string;
+  featured?: boolean;
+  hot?: boolean;
 }
 
 const mockOffers: MockOffer[] = [
@@ -67,6 +81,7 @@ const mockOffers: MockOffer[] = [
     category: "surveys",
     provider: "BitLabs",
     points: 150,
+    minutes: 10,
     icon: MessageSquare,
     iconColor: "bg-green/10 text-green",
   },
@@ -77,8 +92,11 @@ const mockOffers: MockOffer[] = [
     category: "games",
     provider: "AdGem",
     points: 1200,
+    minutes: 10080,
     icon: Swords,
     iconColor: "bg-cyan/10 text-cyan",
+    featured: true,
+    hot: true,
   },
   {
     id: 3,
@@ -87,6 +105,7 @@ const mockOffers: MockOffer[] = [
     category: "shopping",
     provider: "Lootably",
     points: 300,
+    minutes: 5,
     icon: ShoppingCart,
     iconColor: "bg-purple/10 text-purple",
   },
@@ -97,8 +116,10 @@ const mockOffers: MockOffer[] = [
     category: "app-installs",
     provider: "AdGem",
     points: 500,
+    minutes: 3,
     icon: Smartphone,
     iconColor: "bg-cyan/10 text-cyan",
+    hot: true,
   },
   {
     id: 5,
@@ -107,6 +128,7 @@ const mockOffers: MockOffer[] = [
     category: "videos",
     provider: "Lootably",
     points: 25,
+    minutes: 2,
     icon: Film,
     iconColor: "bg-purple/10 text-purple",
   },
@@ -117,6 +139,7 @@ const mockOffers: MockOffer[] = [
     category: "sign-ups",
     provider: "AdGem",
     points: 400,
+    minutes: 3,
     icon: UserPlus,
     iconColor: "bg-cyan/10 text-cyan",
   },
@@ -127,6 +150,7 @@ const mockOffers: MockOffer[] = [
     category: "surveys",
     provider: "Lootably",
     points: 80,
+    minutes: 5,
     icon: ClipboardList,
     iconColor: "bg-purple/10 text-purple",
   },
@@ -137,6 +161,7 @@ const mockOffers: MockOffer[] = [
     category: "games",
     provider: "BitLabs",
     points: 750,
+    minutes: 4320,
     icon: Gamepad2,
     iconColor: "bg-green/10 text-green",
   },
@@ -147,6 +172,7 @@ const mockOffers: MockOffer[] = [
     category: "sign-ups",
     provider: "BitLabs",
     points: 350,
+    minutes: 3,
     icon: ShieldCheck,
     iconColor: "bg-green/10 text-green",
   },
@@ -157,6 +183,7 @@ const mockOffers: MockOffer[] = [
     category: "videos",
     provider: "AdGem",
     points: 50,
+    minutes: 8,
     icon: PlayCircle,
     iconColor: "bg-cyan/10 text-cyan",
   },
@@ -167,8 +194,10 @@ const mockOffers: MockOffer[] = [
     category: "shopping",
     provider: "AdGem",
     points: 600,
+    minutes: 5,
     icon: CreditCard,
     iconColor: "bg-cyan/10 text-cyan",
+    hot: true,
   },
   {
     id: 12,
@@ -177,6 +206,7 @@ const mockOffers: MockOffer[] = [
     category: "surveys",
     provider: "BitLabs",
     points: 200,
+    minutes: 12,
     icon: BarChart3,
     iconColor: "bg-green/10 text-green",
   },
@@ -187,6 +217,7 @@ const mockOffers: MockOffer[] = [
     category: "app-installs",
     provider: "Lootably",
     points: 450,
+    minutes: 5,
     icon: Smartphone,
     iconColor: "bg-purple/10 text-purple",
   },
@@ -197,18 +228,43 @@ const mockOffers: MockOffer[] = [
     category: "sign-ups",
     provider: "Lootably",
     points: 75,
+    minutes: 2,
     icon: Gift,
     iconColor: "bg-purple/10 text-purple",
   },
 ];
 
+function formatTime(minutes: number): string {
+  if (minutes < 60) return `~${minutes} min`;
+  if (minutes < 1440) return `~${Math.round(minutes / 60)} hrs`;
+  return `~${Math.round(minutes / 1440)} days`;
+}
+
+function sortOffers(offers: MockOffer[], sort: SortOption): MockOffer[] {
+  switch (sort) {
+    case "highest":
+      return [...offers].sort((a, b) => b.points - a.points);
+    case "quickest":
+      return [...offers].sort((a, b) => a.minutes - b.minutes);
+    case "newest":
+      return [...offers].sort((a, b) => b.id - a.id);
+  }
+}
+
 export default function OffersPage() {
   const [activeCategory, setActiveCategory] = useState<Category>("all");
+  const [activeSort, setActiveSort] = useState<SortOption>("highest");
 
   const filtered =
     activeCategory === "all"
       ? mockOffers
       : mockOffers.filter((o) => o.category === activeCategory);
+
+  const sorted = sortOffers(filtered, activeSort);
+
+  // Featured offer is always the highest-paying one with featured flag
+  const featuredOffer = mockOffers.find((o) => o.featured);
+  const regularOffers = sorted.filter((o) => o.id !== featuredOffer?.id);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -222,78 +278,164 @@ export default function OffersPage() {
         </p>
       </div>
 
-      {/* Category Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
-        {categories.map((cat) => {
-          const isActive = activeCategory === cat.value;
-          return (
-            <button
-              key={cat.value}
-              onClick={() => setActiveCategory(cat.value)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
-                isActive
-                  ? "btn-gradient"
-                  : "border border-input bg-input/30 text-muted-foreground hover:text-foreground hover:bg-input/50"
-              }`}
-            >
-              <cat.icon className="h-3.5 w-3.5" />
-              {cat.label}
-            </button>
-          );
-        })}
+      {/* Featured offer */}
+      {featuredOffer && activeCategory === "all" && (
+        <Card className="mb-8 card-glow group border-amber/20 bg-gradient-to-br from-amber/[0.04] to-transparent overflow-hidden relative">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${featuredOffer.iconColor} transition-transform duration-300 group-hover:scale-110`}>
+                <featuredOffer.icon className="h-7 w-7" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber/10 text-amber border border-amber/20 px-2 py-0.5 text-[0.65rem] font-semibold">
+                    <Flame className="h-3 w-3" />
+                    Featured
+                  </span>
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold ${providerStyles[featuredOffer.provider]}`}>
+                    {featuredOffer.provider}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold">{featuredOffer.title}</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">{featuredOffer.description}</p>
+                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatTime(featuredOffer.minutes)}
+                  </span>
+                  <span>·</span>
+                  <span>{categories.find((c) => c.value === featuredOffer.category)?.label}</span>
+                </div>
+              </div>
+              <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-2 shrink-0">
+                <div className="text-right">
+                  <p className="offer-reward text-2xl font-bold text-green">+{featuredOffer.points} pts</p>
+                  <p className="text-sm text-muted-foreground">${(featuredOffer.points / 100).toFixed(2)}</p>
+                </div>
+                <Button className="btn-gradient px-6">
+                  Start offer
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters + sort row */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none flex-1">
+          {categories.map((cat) => {
+            const isActive = activeCategory === cat.value;
+            return (
+              <button
+                key={cat.value}
+                onClick={() => setActiveCategory(cat.value)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                  isActive
+                    ? "btn-gradient"
+                    : "border border-input bg-input/30 text-muted-foreground hover:text-foreground hover:bg-input/50"
+                }`}
+              >
+                <cat.icon className="h-3.5 w-3.5" />
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sort dropdown */}
+        <div className="flex items-center gap-2 shrink-0">
+          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <select
+            value={activeSort}
+            onChange={(e) => setActiveSort(e.target.value as SortOption)}
+            className="bg-input/30 border border-input rounded-full px-3 py-1.5 text-sm text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple/50 cursor-pointer"
+          >
+            {sortOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <p className="text-sm text-muted-foreground mb-6">
-        Showing {filtered.length} offer{filtered.length !== 1 ? "s" : ""}
-      </p>
-
       {/* Offer Grid */}
-      {filtered.length > 0 ? (
+      {regularOffers.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((offer) => (
-            <Card key={offer.id} className="card-glow">
-              <CardContent className="pt-5 pb-4">
-                {/* Top row: category + provider */}
-                <div className="flex items-center justify-between mb-4">
-                  <Badge variant="secondary" className="text-xs">
-                    {categories.find((c) => c.value === offer.category)?.label}
-                  </Badge>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold ${providerStyles[offer.provider]}`}
-                  >
-                    {offer.provider}
-                  </span>
-                </div>
-
-                {/* Icon + info */}
-                <div className="flex items-start gap-3 mb-4">
-                  <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${offer.iconColor}`}
-                  >
-                    <offer.icon className="h-5 w-5" />
+          {regularOffers.map((offer) => {
+            const isHighValue = offer.points >= 500;
+            return (
+              <Card
+                key={offer.id}
+                className={`card-glow group ${isHighValue ? "border-green/10" : ""}`}
+              >
+                <CardContent className="pt-5 pb-4">
+                  {/* Top row: badges */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="secondary" className="text-xs">
+                        {categories.find((c) => c.value === offer.category)?.label}
+                      </Badge>
+                      {offer.hot && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber/10 text-amber border border-amber/20 px-1.5 py-0.5 text-[0.6rem] font-semibold">
+                          <Flame className="h-2.5 w-2.5" />
+                          Hot
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold ${providerStyles[offer.provider]}`}
+                    >
+                      {offer.provider}
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-sm leading-tight">
-                      {offer.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                      {offer.description}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Bottom row: points + CTA */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-green">
-                    +{offer.points} pts
-                  </span>
-                  <Button size="sm" variant="outline" className="h-7 text-xs">
-                    Start
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {/* Icon + info */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${offer.iconColor} transition-transform duration-300 group-hover:scale-110`}
+                    >
+                      <offer.icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm leading-tight">
+                        {offer.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {offer.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bottom row: points + time + CTA */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="offer-reward text-green font-bold">
+                        +{offer.points} pts
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1.5">
+                        (${(offer.points / 100).toFixed(2)})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(offer.minutes)}
+                      </span>
+                      <Button
+                        size="sm"
+                        className={`h-7 text-xs ${isHighValue ? "btn-gradient" : ""}`}
+                        variant={isHighValue ? "default" : "outline"}
+                      >
+                        Start
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 p-12 text-center">
