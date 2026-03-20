@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth-client";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,20 +24,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (!turnstileToken) {
+      setError("Please complete the bot verification.");
+      return;
+    }
+
     setLoading(true);
 
-    const { error: signInError } = await signIn.email({
-      email,
-      password,
-    });
+    const { error: signInError } = await signIn.email(
+      {
+        email,
+        password,
+      },
+      {
+        headers: { "x-turnstile-token": turnstileToken },
+      }
+    );
 
     if (signInError) {
       setError(signInError.message || "Invalid email or password.");
       setLoading(false);
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       return;
     }
 
@@ -84,7 +102,22 @@ export default function LoginPage() {
               required
             />
           </div>
-          <Button type="submit" className="w-full btn-gradient" disabled={loading}>
+
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ""}
+            onSuccess={setTurnstileToken}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => setTurnstileError(true)}
+            options={{ theme: "dark" }}
+          />
+          {turnstileError && (
+            <p className="text-sm text-destructive">
+              Bot verification failed to load. Please refresh the page.
+            </p>
+          )}
+
+          <Button type="submit" className="w-full btn-gradient" disabled={loading || !turnstileToken}>
             {loading ? "Logging in..." : "Log In"}
           </Button>
         </form>
