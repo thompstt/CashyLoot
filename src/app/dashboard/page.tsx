@@ -210,8 +210,8 @@ export default async function DashboardPage() {
         </div>
         <div className="grid sm:grid-cols-3 gap-4">
           {topOffers.map((offer) => (
-            <Card key={offer.title} className="card-glow group cursor-pointer" asChild>
-              <Link href="/offers">
+            <Link key={offer.title} href="/offers" className="block">
+              <Card className="card-glow group cursor-pointer">
                 <CardContent className="pt-5 pb-5">
                   <div className="flex items-start gap-3 mb-3">
                     <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${offer.iconColor} transition-transform duration-300 group-hover:scale-110`}>
@@ -227,8 +227,8 @@ export default async function DashboardPage() {
                     <span className="text-xs text-muted-foreground">${(offer.points / 100).toFixed(2)}</span>
                   </div>
                 </CardContent>
-              </Link>
-            </Card>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>
