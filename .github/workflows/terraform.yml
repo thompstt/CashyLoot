@@ -1,0 +1,103 @@
+# Terraform CI — Plan on PRs that touch infrastructure
+# Authenticates via OIDC (no stored AWS credentials).
+# Posts plan output as a PR comment for review.
+
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/terraform.yml'
+
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read
+  pull-requests: write  # Required to post plan as PR comment
+
+env:
+  TF_VERSION: "1.5.7"
+  AWS_REGION: "us-east-1"
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create tfvars from secrets
+        working-directory: infra
+        run: |
+          cat > terraform.tfvars <<EOF
+          aws_region           = "${{ env.AWS_REGION }}"
+          project_name         = "cashyloot"
+          environment          = "production"
+          domain_name          = "cashyloot.com"
+          hosted_zone_id       = "${{ secrets.TF_HOSTED_ZONE_ID }}"
+          vpc_id               = "${{ secrets.TF_VPC_ID }}"
+          db_security_group_id = "${{ secrets.TF_DB_SECURITY_GROUP_ID }}"
+          db_cluster_id        = "cashylootdb"
+          db_subnet_group_name = "${{ secrets.TF_DB_SUBNET_GROUP_NAME }}"
+          amplify_role_name    = "${{ secrets.TF_AMPLIFY_ROLE_NAME }}"
+          repository_url       = "https://github.com/${{ github.repository }}"
+          github_repo          = "${{ github.repository }}"
+          EOF
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: infra
+        run: terraform plan -no-color -out=tfplan 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('infra/plan_output.txt', 'utf8');
+            const truncated = output.length > 60000 ? output.substring(0, 60000) + '\n... (truncated)' : output;
+            const outcome = '${{ steps.plan.outcome }}';
+            const icon = outcome === 'success' ? '✅' : '❌';
+
+            const body = `### ${icon} Terraform Plan
+
+            <details>
+            <summary>Click to expand plan output</summary>
+
+            \`\`\`
+            ${truncated}
+            \`\`\`
+
+            </details>
+
+            *Plan: ${outcome}*`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
