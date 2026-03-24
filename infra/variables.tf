@@ -62,3 +62,8 @@ variable "amplify_role_name" {
   description = "Name of the Amplify SSR IAM role"
   type        = string
 }
+
+variable "repository_url" {
+  description = "GitHub repository URL for Amplify"
+  type        = string
+}

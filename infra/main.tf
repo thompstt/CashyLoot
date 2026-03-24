@@ -61,3 +61,13 @@ module "iam" {
 
   amplify_role_name = var.amplify_role_name
 }
+
+module "amplify" {
+  source = "./modules/amplify"
+
+  app_name             = var.project_name
+  repository_url       = var.repository_url
+  domain_name          = var.domain_name
+  iam_service_role_arn = module.iam.amplify_role_arn
+  build_spec           = file("${path.root}/../amplify.yml")
+}
