@@ -67,3 +67,8 @@ variable "repository_url" {
   description = "GitHub repository URL for Amplify"
   type        = string
 }
+
+variable "github_repo" {
+  description = "GitHub repository in owner/name format (for OIDC)"
+  type        = string
+}
