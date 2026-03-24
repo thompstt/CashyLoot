@@ -60,6 +60,8 @@ module "iam" {
   source = "./modules/iam"
 
   amplify_role_name = var.amplify_role_name
+  project_name      = var.project_name
+  github_repo       = var.github_repo
 }
 
 module "amplify" {

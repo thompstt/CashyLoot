@@ -27,3 +27,8 @@ output "amplify_default_domain" {
   description = "Amplify default domain"
   value       = module.amplify.default_domain
 }
+
+output "github_actions_role_arn" {
+  description = "GitHub Actions OIDC role ARN (use in CI workflow)"
+  value       = module.iam.github_actions_role_arn
+}
