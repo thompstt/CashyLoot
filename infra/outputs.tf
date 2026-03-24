@@ -17,3 +17,13 @@ output "hosted_zone_id" {
   description = "Route 53 hosted zone ID"
   value       = module.dns.zone_id
 }
+
+output "amplify_app_id" {
+  description = "Amplify app ID"
+  value       = module.amplify.app_id
+}
+
+output "amplify_default_domain" {
+  description = "Amplify default domain"
+  value       = module.amplify.default_domain
+}
