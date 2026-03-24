@@ -48,3 +48,10 @@ next-env.d.ts
 
 # local scripts
 /scripts/
+
+# Terraform
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.backup
+infra/terraform.tfvars
+!infra/bootstrap/terraform.tfstate
