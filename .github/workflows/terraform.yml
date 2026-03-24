@@ -1,8 +1,9 @@
-# Terraform CI — Plan on PRs that touch infrastructure
+# Terraform CI/CD — Full GitOps
+# PRs: plan + post as comment
+# Merge to main: auto-apply
 # Authenticates via OIDC (no stored AWS credentials).
-# Posts plan output as a PR comment for review.
 
-name: Terraform Plan
+name: Terraform
 
 on:
   pull_request:
@@ -10,9 +11,14 @@ on:
     paths:
       - 'infra/**'
       - '.github/workflows/terraform.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/terraform.yml'
 
 permissions:
-  id-token: write   # Required for OIDC authentication
+  id-token: write      # Required for OIDC authentication
   contents: read
   pull-requests: write  # Required to post plan as PR comment
 
@@ -21,8 +27,12 @@ env:
   AWS_REGION: "us-east-1"
 
 jobs:
+  # ──────────────────────────────────────────────
+  # Plan — runs on PRs, posts output as comment
+  # ──────────────────────────────────────────────
   terraform-plan:
     name: Terraform Plan
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -101,3 +111,52 @@ jobs:
       - name: Fail if plan failed
         if: steps.plan.outcome == 'failure'
         run: exit 1
+
+  # ──────────────────────────────────────────────
+  # Apply — runs on push to main (after PR merge)
+  # ──────────────────────────────────────────────
+  terraform-apply:
+    name: Terraform Apply
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create tfvars from secrets
+        working-directory: infra
+        run: |
+          cat > terraform.tfvars <<EOF
+          aws_region           = "${{ env.AWS_REGION }}"
+          project_name         = "cashyloot"
+          environment          = "production"
+          domain_name          = "cashyloot.com"
+          hosted_zone_id       = "${{ secrets.TF_HOSTED_ZONE_ID }}"
+          vpc_id               = "${{ secrets.TF_VPC_ID }}"
+          db_security_group_id = "${{ secrets.TF_DB_SECURITY_GROUP_ID }}"
+          db_cluster_id        = "cashylootdb"
+          db_subnet_group_name = "${{ secrets.TF_DB_SUBNET_GROUP_NAME }}"
+          amplify_role_name    = "${{ secrets.TF_AMPLIFY_ROLE_NAME }}"
+          repository_url       = "https://github.com/${{ github.repository }}"
+          github_repo          = "${{ github.repository }}"
+          EOF
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve -no-color

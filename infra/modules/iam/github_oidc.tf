@@ -43,16 +43,17 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-# Read-only permissions for terraform plan
-# This role can read all resources but cannot modify anything
-resource "aws_iam_role_policy" "github_actions_readonly" {
-  name = "TerraformPlanReadOnly"
+# Read + write permissions for terraform plan and apply
+# Scoped to only the services Terraform manages
+resource "aws_iam_role_policy" "github_actions_terraform" {
+  name = "TerraformPlanAndApply"
   role = aws_iam_role.github_actions.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "ReadAll"
         Effect = "Allow"
         Action = [
           "rds:Describe*",
@@ -60,6 +61,7 @@ resource "aws_iam_role_policy" "github_actions_readonly" {
           "ec2:Describe*",
           "ses:Get*",
           "ses:Describe*",
+          "ses:List*",
           "route53:Get*",
           "route53:List*",
           "iam:Get*",
@@ -77,7 +79,78 @@ resource "aws_iam_role_policy" "github_actions_readonly" {
         Resource = "*"
       },
       {
-        # Allow reading/writing Terraform state
+        Sid    = "WriteRDS"
+        Effect = "Allow"
+        Action = [
+          "rds:ModifyDBCluster",
+          "rds:ModifyDBInstance",
+          "rds:AddTagsToResource",
+          "rds:RemoveTagsFromResource",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "WriteEC2"
+        Effect = "Allow"
+        Action = [
+          "ec2:ModifyVpcAttribute",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:CreateTags",
+          "ec2:DeleteTags",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "WriteSES"
+        Effect = "Allow"
+        Action = [
+          "ses:PutIdentityPolicy",
+          "ses:DeleteIdentityPolicy",
+          "ses:SetIdentityDkimEnabled",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "WriteRoute53"
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets",
+          "route53:ChangeTagsForResource",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "WriteIAM"
+        Effect = "Allow"
+        Action = [
+          "iam:TagRole",
+          "iam:TagUser",
+          "iam:UntagRole",
+          "iam:UntagUser",
+          "iam:UpdateRole",
+          "iam:UpdateRoleDescription",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "WriteAmplify"
+        Effect = "Allow"
+        Action = [
+          "amplify:UpdateApp",
+          "amplify:UpdateBranch",
+          "amplify:UpdateDomainAssociation",
+          "amplify:TagResource",
+          "amplify:UntagResource",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "TerraformState"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
@@ -87,7 +160,7 @@ resource "aws_iam_role_policy" "github_actions_readonly" {
         Resource = "arn:aws:s3:::${var.project_name}-terraform-state/*"
       },
       {
-        # Allow state locking
+        Sid    = "TerraformLocking"
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
