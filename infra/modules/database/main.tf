@@ -13,8 +13,20 @@ resource "aws_rds_cluster" "main" {
   engine_mode        = "provisioned"
   engine_version     = "17.4"
 
+  # Restore from 2026-03-30 snapshot. The cluster was deleted on 2026-03-30
+  # by mcp-admin (documented in ops log) and recovered via this attribute.
+  # AWS preserves the master password from the snapshot on restore — this is
+  # why `manage_master_user_password` is disabled below. The existing
+  # Amplify DATABASE_URL already contains the snapshot's password, so keeping
+  # it baked in is the zero-app-change recovery path.
+  #
+  # `snapshot_identifier` is evaluated only on create — the ignore_changes
+  # entry below prevents future drift detection from trying to "re-restore"
+  # the cluster if the snapshot is renamed or removed.
+  snapshot_identifier = "cashylootdb-snapshot-2026-03-30"
+
   master_username                     = "CashyLoot"
-  manage_master_user_password         = true
+  manage_master_user_password         = false
   deletion_protection                 = var.deletion_protection
   skip_final_snapshot                 = false
   final_snapshot_identifier           = "${var.cluster_identifier}-final"
@@ -35,6 +47,7 @@ resource "aws_rds_cluster" "main" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [snapshot_identifier]
   }
 }
 
