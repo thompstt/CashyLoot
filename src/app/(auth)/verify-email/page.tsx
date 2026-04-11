@@ -1,9 +1,11 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,16 +21,29 @@ function VerifyEmailContent() {
   const email = searchParams.get("email") || "your email";
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent" | "error" | "rate-limited">("idle");
   const [cooldown, setCooldown] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
 
   async function handleResend() {
     if (cooldown > 0) return;
+    if (!turnstileToken) {
+      setResendStatus("error");
+      return;
+    }
 
     setResendStatus("sending");
 
     try {
-      const { error } = await authClient.sendVerificationEmail({
-        email,
-      });
+      const { error } = await authClient.sendVerificationEmail(
+        { email },
+        { headers: { "x-turnstile-token": turnstileToken } },
+      );
+
+      // Turnstile tokens are single-use — reset the widget so the user can
+      // resend again after the cooldown if they need to.
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
 
       if (error) {
         if (error.status === 429) {
@@ -52,6 +67,8 @@ function VerifyEmailContent() {
         });
       }, 1000);
     } catch {
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       setResendStatus("error");
     }
   }
@@ -72,11 +89,27 @@ function VerifyEmailContent() {
           Click the link in the email to activate your account. If you don&apos;t see it, check your spam folder.
         </p>
 
+        <div className="flex justify-center">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ""}
+            onSuccess={setTurnstileToken}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => setTurnstileError(true)}
+            options={{ theme: "dark" }}
+          />
+        </div>
+        {turnstileError && (
+          <p className="text-sm text-destructive">
+            Bot verification failed to load. Please refresh the page.
+          </p>
+        )}
+
         <div className="space-y-2">
           <Button
             variant="outline"
             onClick={handleResend}
-            disabled={resendStatus === "sending" || cooldown > 0}
+            disabled={resendStatus === "sending" || cooldown > 0 || !turnstileToken}
             className="w-full"
           >
             {resendStatus === "sending"
