@@ -3,11 +3,21 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { rollPrize, getVaultConfig, VALID_TIERS } from "@/lib/vault";
+import { assertRateLimit, RateLimitError } from "@/lib/rate-limit";
 import type { VaultOpenResponse, VaultTier } from "@/types/api";
 
 const vaultOpenSchema = z.object({
   tier: z.enum(["bronze", "silver", "gold"]),
 });
+
+// Per-user rate limit for vault opens. 20 per minute is generous for any
+// legitimate human interaction (the UI has an animation between opens so
+// even a spammer clicking as fast as possible wouldn't hit this naturally)
+// and tight enough to stop automation. The goal isn't to block abusive use
+// of a user's own balance — the TOCTOU fix already prevents the race — but
+// to cap the DB write rate from any single session.
+const VAULT_RATE_LIMIT_MAX = 20;
+const VAULT_RATE_LIMIT_WINDOW_SEC = 60;
 
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({
@@ -19,6 +29,56 @@ export async function POST(request: NextRequest) {
       { success: false, prize: 0, cost: 0, newBalance: 0, error: "Unauthorized" } satisfies VaultOpenResponse,
       { status: 401 },
     );
+  }
+
+  // Rate limit per authenticated user. Run BEFORE parsing the body so a
+  // spammer can't DoS by sending valid JSON at high rate — we reject them
+  // at the rate-limit check with zero extra work.
+  try {
+    await assertRateLimit(
+      `vault-open:user:${session.user.id}`,
+      VAULT_RATE_LIMIT_MAX,
+      VAULT_RATE_LIMIT_WINDOW_SEC,
+    );
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      // Log to FraudEvent so abuse shows up in audit queries. The insert is
+      // fire-and-forget — if it fails we still want to return the 429 to
+      // the client, not crash the request.
+      await prisma.fraudEvent.create({
+        data: {
+          userId: session.user.id,
+          eventType: "rate_limit",
+          details: JSON.stringify({
+            endpoint: "/api/vault/open",
+            max: VAULT_RATE_LIMIT_MAX,
+            windowSec: VAULT_RATE_LIMIT_WINDOW_SEC,
+            resetAt: e.resetAt.toISOString(),
+          }),
+        },
+      }).catch((err) => {
+        console.error("[vault-open] failed to log rate limit event", err);
+      });
+
+      const retryAfterSec = Math.max(
+        1,
+        Math.ceil((e.resetAt.getTime() - Date.now()) / 1000),
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          prize: 0,
+          cost: 0,
+          newBalance: 0,
+          error: "Too many requests — please slow down",
+        } satisfies VaultOpenResponse,
+        {
+          status: 429,
+          headers: { "Retry-After": String(retryAfterSec) },
+        },
+      );
+    }
+    throw e;
   }
 
   const parseResult = vaultOpenSchema.safeParse(await request.json().catch(() => null));
