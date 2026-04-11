@@ -167,3 +167,23 @@ model VaultOpening {
   @@index([createdAt])
   @@map("vault_opening")
 }
+
+// ============================================
+// Better Auth Built-in Rate Limiter Storage
+// ============================================
+// Used when `rateLimit.storage = "database"` is set in auth.ts.
+// Better Auth's adapter looks up rows by `key` (format: "${ip}:${path}") and
+// increments `count` within each rolling window. `lastRequest` is a ms-epoch
+// timestamp used to compute whether the window has elapsed.
+//
+// Schema fields are fixed by Better Auth's storage contract — do not rename.
+// See: @better-auth/core/dist/db/get-tables.mjs for the authoritative shape.
+
+model RateLimit {
+  id          String @id @default(cuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rate_limit")
+}
