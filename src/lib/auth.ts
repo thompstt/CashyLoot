@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "./db";
 import { sendVerificationEmail } from "./ses";
+import { getIpIntelligence } from "./ip-intel";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -41,16 +42,6 @@ export const auth = betterAuth({
   databaseHooks: {
     session: {
       create: {
-        // ── Block banned/suspended users at sign-in ──
-        //
-        // Better Auth authenticates the password but doesn't know about our
-        // custom `status` field. Without this hook, a banned user could
-        // create a valid session — they'd be blocked at each endpoint by
-        // `getActiveSession()`, but the session itself would exist.
-        //
-        // Returning `false` aborts the session insert (see
-        // better-auth/dist/db/with-hooks.mjs:17) so the login flow fails
-        // before a session token is ever issued.
         before: async (session) => {
           const user = await prisma.user.findUnique({
             where: { id: session.userId },
@@ -77,28 +68,43 @@ export const auth = betterAuth({
 
         // ── Post-login fraud signals ──
         //
-        // These are detection-only (no blocking). Each check logs a
-        // FraudEvent row for review. All DB operations are fire-and-forget
-        // so a failure in detection never breaks the login flow.
+        // Detection-only (no blocking). Logs FraudEvent rows for review.
+        // All operations are wrapped in try/catch so detection failures
+        // never break the login flow.
         //
-        // Signals detected:
-        //   1. new_ip_login     — IP not seen in this user's session history
-        //   2. new_device_login — User-Agent not seen before
-        //   3. shared_ip_detected — another user logged in from same IP
-        //                           within the last 7 days (multi-account)
-        after: async (session) => {
+        // Signals (Tier 2):
+        //   1. new_ip_login        — IP not in user's session history
+        //   2. new_device_login    — User-Agent not seen before
+        //   3. shared_ip_detected  — another user from same IP (multi-account)
+        //
+        // Signals (Tier 3):
+        //   4. vpn_detected        — proxycheck.io flags IP as VPN/proxy
+        //   5. datacenter_ip       — IP belongs to a hosting provider
+        //   6. multi_account_fingerprint — browser fingerprint matches another user
+        after: async (session, ctx) => {
           if (!session) return;
 
           try {
             const ip = session.ipAddress;
             const agent = session.userAgent;
-
-            // Skip for local/unknown IPs — they're uninformative for fraud
-            // detection and would cause false positives in dev (all test
-            // users share 127.0.0.1).
             const skipIp = !ip || ip === "127.0.0.1" || ip === "::1" || ip === "unknown";
 
-            // Fetch recent sessions for this user (excluding the one just created)
+            // Read the fingerprint header from the request context.
+            // The client sends this as `x-fingerprint` on login/signup.
+            // ctx is the auth context — may be null if getCurrentAuthContext()
+            // failed (rare, defensive).
+            const fingerprint = ctx?.headers?.get?.("x-fingerprint") || null;
+
+            // ── Store fingerprint on user record ──
+            // Updates user.deviceFingerprint to the latest visitorId.
+            // This field was in the schema since Phase 0 but never populated.
+            if (fingerprint) {
+              await prisma.user.update({
+                where: { id: session.userId },
+                data: { deviceFingerprint: fingerprint },
+              });
+            }
+
             const previousSessions = await prisma.session.findMany({
               where: {
                 userId: session.userId,
@@ -109,8 +115,6 @@ export const auth = betterAuth({
               take: 50,
             });
 
-            // Only run new-IP/device checks if the user has prior sessions
-            // (first login is not "new" — it's just "first")
             if (previousSessions.length > 0) {
               // 1. New IP detection
               if (!skipIp) {
@@ -151,8 +155,6 @@ export const auth = betterAuth({
             }
 
             // 3. Multi-account detection: shared IP
-            // Check if any OTHER user has logged in from this IP in the last
-            // 7 days. Skip for localhost / uninformative IPs.
             if (!skipIp) {
               const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
               const otherUsers = await prisma.session.findMany({
@@ -180,8 +182,70 @@ export const auth = betterAuth({
                 });
               }
             }
+
+            // 4 + 5. IP intelligence: VPN / proxy / datacenter detection
+            // Uses proxycheck.io free tier with 24h caching.
+            if (!skipIp) {
+              const intel = await getIpIntelligence(ip);
+
+              if (intel.isVpn || (intel.type === "Hosting")) {
+                await prisma.fraudEvent.create({
+                  data: {
+                    userId: session.userId,
+                    eventType: intel.type === "Hosting" ? "datacenter_ip" : "vpn_detected",
+                    details: JSON.stringify({
+                      ip,
+                      type: intel.type,
+                      provider: intel.provider,
+                      country: intel.country,
+                      riskLevel: intel.riskLevel,
+                    }),
+                  },
+                });
+              } else if (intel.isProxy) {
+                await prisma.fraudEvent.create({
+                  data: {
+                    userId: session.userId,
+                    eventType: "vpn_detected",
+                    details: JSON.stringify({
+                      ip,
+                      type: intel.type,
+                      provider: intel.provider,
+                      country: intel.country,
+                      riskLevel: intel.riskLevel,
+                    }),
+                  },
+                });
+              }
+            }
+
+            // 6. Multi-account fingerprint detection
+            // Check if any OTHER user has the same browser fingerprint.
+            if (fingerprint) {
+              const otherFingerprints = await prisma.user.findMany({
+                where: {
+                  deviceFingerprint: fingerprint,
+                  id: { not: session.userId },
+                },
+                select: { id: true, email: true },
+                take: 10,
+              });
+
+              if (otherFingerprints.length > 0) {
+                await prisma.fraudEvent.create({
+                  data: {
+                    userId: session.userId,
+                    eventType: "multi_account_fingerprint",
+                    details: JSON.stringify({
+                      fingerprint: fingerprint.slice(0, 32),
+                      otherUserIds: otherFingerprints.map((u) => u.id),
+                      otherEmails: otherFingerprints.map((u) => u.email),
+                    }),
+                  },
+                });
+              }
+            }
           } catch (err) {
-            // Never break the login flow for a detection failure
             console.error("[auth hook] post-login fraud detection error:", err);
           }
         },
