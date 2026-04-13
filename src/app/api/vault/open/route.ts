@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { rollPrize, getVaultConfig, VALID_TIERS } from "@/lib/vault";
 import { assertRateLimit, RateLimitError } from "@/lib/rate-limit";
+import { getActiveSession } from "@/lib/session";
 import type { VaultOpenResponse, VaultTier } from "@/types/api";
 
 const vaultOpenSchema = z.object({
@@ -20,14 +20,17 @@ const VAULT_RATE_LIMIT_MAX = 20;
 const VAULT_RATE_LIMIT_WINDOW_SEC = 60;
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const { session, error } = await getActiveSession(request.headers);
 
   if (!session) {
+    const status = error === "unauthenticated" ? 401 : 403;
+    const message =
+      error === "banned" ? "Account suspended" :
+      error === "suspended" ? "Account temporarily suspended" :
+      "Unauthorized";
     return NextResponse.json(
-      { success: false, prize: 0, cost: 0, newBalance: 0, error: "Unauthorized" } satisfies VaultOpenResponse,
-      { status: 401 },
+      { success: false, prize: 0, cost: 0, newBalance: 0, error: message } satisfies VaultOpenResponse,
+      { status },
     );
   }
 
