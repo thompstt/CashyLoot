@@ -135,10 +135,7 @@ export async function GET(request: NextRequest) {
     transaction_id: transactionId,
     currency_amount: currencyAmount,
     is_chargeback: isChargeback,
-    payout_usd: payoutUsd,
     survey_id: surveyId,
-    offer_name: offerName,
-    chargeback_reason: chargebackReason,
   } = parseResult.data;
 
   // ── Step 5: Rate limiting ───────────────────────────────────────────────
@@ -183,7 +180,7 @@ export async function GET(request: NextRequest) {
 
   if (user.status === "banned" || user.status === "suspended") {
     // Log the postback for audit trail but don't credit
-    await prisma.postbackLog
+    prisma.postbackLog
       .create({
         data: {
           rawPayload: JSON.stringify(rawParams),
