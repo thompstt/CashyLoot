@@ -28,6 +28,7 @@ export interface OfferwallUrlsResponse {
   adgem: string | null;
   lootably: string | null;
   bitlabs: string | null;
+  ayet: string | null;
 }
 
 // POST /api/withdraw
@@ -46,7 +47,7 @@ export interface WithdrawResponse {
 
 // Postback data (server-side, parsed from provider callbacks)
 export interface PostbackData {
-  provider: "adgem" | "lootably" | "bitlabs";
+  provider: "adgem" | "lootably" | "bitlabs" | "ayet";
   playerId: string;
   amount: number; // Points to credit
   requestId: string; // For deduplication
