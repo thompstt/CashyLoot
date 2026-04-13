@@ -42,20 +42,29 @@ No Prisma schema changes. `PostbackLog.provider` and `Transaction.provider` are 
 4. Parse & validate query params via Zod:
    - external_identifier (string, required)
    - transaction_id (string, required)
-   - currency_amount (number, required)
+   - currency_amount (number, required, abs value ≤ MAX_CURRENCY_AMOUNT)
    - is_chargeback (number, 0 or 1, default 0)
    - payout_usd (number, optional)
    - survey_id (string, optional)
    - offer_name (string, optional)
-5. Look up user by external_identifier (raw user ID)
+5. Rate limit check:
+   - Per-user: `postback:ayet:user:${userId}` — 50/hour
+   - Global: `postback:ayet:global` — 1000/hour
+   - If exceeded → return 200 (don't trigger retries) + FraudEvent
+6. Look up user by external_identifier (raw user ID)
    - If not found → return 200 (don't trigger ayeT retries), log warning
-6. Convert currency_amount to points via convertToPoints()
-7. Atomic $transaction:
+   - If user.status is "banned" or "suspended" → log PostbackLog for audit, skip credit, return 200
+7. Convert currency_amount to points via convertToPoints()
+8. Atomic $transaction:
    a. Create PostbackLog (requestId = transaction_id, rawPayload, provider: "ayet", verified: true, processed: true)
       - Unique constraint on requestId provides dedup — if violation, catch and return 200 (idempotent)
    b. Update user balance (increment — negative for chargebacks, allowing negative balances)
    c. Create Transaction (type: "earn", provider: "ayet", status: "completed" or "reversed")
-8. Return 200 (always — ayeT retries 12x over 1 hour on non-200)
+9. Async velocity detection (fire-and-forget, same pattern as vault):
+   - Count user's postback Transactions in last hour
+   - If ≥ 20 → FraudEvent("high_velocity_postback")
+   - If chargeback and newBalance < -10000 → FraudEvent("excessive_chargeback")
+10. Return 200 (always — ayeT retries 12x over 1 hour on non-200)
 ```
 
 ### Key behaviors
@@ -67,7 +76,7 @@ No Prisma schema changes. `PostbackLog.provider` and `Transaction.provider` are 
 
 ## `src/lib/ayet.ts` Helper
 
-Three exports:
+Six exports:
 
 ### `AYET_IP_WHITELIST: Set<string>`
 
@@ -90,9 +99,17 @@ Last updated by ayeT: 2025-01-30. Should be checked periodically.
 4. Compute HMAC-SHA256 using `AYET_API_KEY` from env
 5. Timing-safe comparison (`crypto.timingSafeEqual`) against header value
 
+### `MAX_CURRENCY_AMOUNT = 50`
+
+Upper bound for a single callback's `currency_amount` (absolute value). No single survey pays more than this. If exceeded, reject the callback and log `FraudEvent("suspicious_postback_amount")`. Applies to both credits and chargebacks.
+
+### `AYET_POINTS_PER_CURRENCY = 100`
+
+Conversion rate constant. Easy to make env-driven later.
+
 ### `convertToPoints(currencyAmount: number): number`
 
-- Hardcoded rate: `AYET_POINTS_PER_CURRENCY = 100` (easy to make env-driven later)
+- Applies `AYET_POINTS_PER_CURRENCY` rate
 - Returns `Math.round(currencyAmount * rate)`
 - Preserves sign (negative for chargebacks)
 
@@ -127,10 +144,29 @@ https://surveys.ayet.io/surveys?adSlot={ADSLOT_ID}&external_identifier={USER_ID}
 
 Person B will integrate this into the offers page, replacing mock data for the ayeT provider. The `GET /api/user/offerwall-urls` endpoint (not yet built) will serve this URL with the user's ID substituted.
 
+## Security Gap Analysis (2026-04-13)
+
+Gaps identified and addressed in this revision:
+
+| Gap | Severity | Resolution |
+|---|---|---|
+| No user status check before crediting | HIGH | Added status check at step 6 — banned/suspended users get logged but not credited |
+| No rate limiting on postback endpoint | MEDIUM | Added per-user (50/hr) and global (1000/hr) rate limits at step 5 |
+| No postback velocity fraud detection | MEDIUM | Added async velocity check at step 9 — `high_velocity_postback` FraudEvent at ≥20/hr |
+| No currency amount bounds checking | MEDIUM | Added `MAX_CURRENCY_AMOUNT = 50` validation in Zod schema |
+
+Gaps noted for follow-up (not blocking this implementation):
+
+| Gap | Severity | Notes |
+|---|---|---|
+| No chargeback accumulation auto-suspend | LOW | `excessive_chargeback` FraudEvent logged at -10000 points; auto-suspend deferred to Playbook integration |
+| IP extraction reliability for S2S requests | LOW | `getClientIp()` reads `x-forwarded-for`; verify in testing that Amplify populates this correctly for direct server-to-server requests. Fall back to `x-real-ip` or socket address if needed. |
+| CSP header for surveywall iframe | LOW | Person B will need `frame-src https://surveys.ayet.io` — pre-existing gap tracked in security audit |
+| Raw user ID as external_identifier | LOW | Exposes cuid in iframe URL. Acceptable per decision; revisit if user enumeration becomes a concern. |
+
 ## What This Design Does NOT Cover
 
 - Provider abstraction layer (deferred to provider #2)
 - Offerwall URL endpoint (`GET /api/user/offerwall-urls`) — separate spec
 - Offers page frontend changes (Person B)
-- Security gap analysis (planned follow-up)
-- Velocity detection on postbacks (can be added later, same pattern as vault)
+- Pre-existing infra issues (public RDS, missing CSP — tracked in security audit)
