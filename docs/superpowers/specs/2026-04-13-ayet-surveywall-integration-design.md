@@ -76,7 +76,7 @@ No Prisma schema changes. `PostbackLog.provider` and `Transaction.provider` are 
 
 ## `src/lib/ayet.ts` Helper
 
-Six exports:
+Five exports:
 
 ### `AYET_IP_WHITELIST: Set<string>`
 
