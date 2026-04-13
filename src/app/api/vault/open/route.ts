@@ -161,6 +161,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ── Hourly velocity detection (non-blocking, runs after success) ──
+  // If the user has opened >100 vaults in the past hour, log a FraudEvent.
+  // This doesn't block the request — the per-minute rate limit already caps
+  // automation. This catches sustained high-frequency abuse that stays under
+  // the per-minute limit (e.g., 19 opens every minute for an hour = 1140).
+  // Fire-and-forget: don't delay the response for detection logic.
+  prisma.vaultOpening.count({
+    where: {
+      userId: session.user.id,
+      createdAt: { gte: new Date(Date.now() - 3600_000) },
+    },
+  }).then((hourlyCount) => {
+    if (hourlyCount >= 100) {
+      prisma.fraudEvent.create({
+        data: {
+          userId: session.user.id,
+          eventType: "high_velocity_vault",
+          details: JSON.stringify({
+            count: hourlyCount,
+            window: "1h",
+            threshold: 100,
+          }),
+        },
+      }).catch(() => {});
+    }
+  }).catch(() => {});
+
   return NextResponse.json({
     success: true,
     prize,

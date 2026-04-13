@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth-client";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
+import { useFingerprint } from "@/hooks/useFingerprint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
+  const fingerprint = useFingerprint();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -45,7 +47,10 @@ export default function LoginPage() {
         password,
       },
       {
-        headers: { "x-turnstile-token": turnstileToken },
+        headers: {
+          "x-turnstile-token": turnstileToken,
+          ...(fingerprint && { "x-fingerprint": fingerprint }),
+        },
       }
     );
 

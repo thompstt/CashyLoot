@@ -215,3 +215,25 @@ model AppRateLimit {
   @@index([updatedAt])
   @@map("app_rate_limit")
 }
+
+// ============================================
+// IP Intelligence Cache
+// ============================================
+// Cached results from proxycheck.io (free tier: 1,000 lookups/day).
+// IPs don't change classification frequently, so 24h TTL is fine.
+// The cache avoids burning API quota on repeat visits from the same IP.
+// Lookup happens on login (session.create.after hook in auth.ts).
+
+model IpIntelCache {
+  ip        String   @id
+  isVpn     Boolean  @default(false)
+  isProxy   Boolean  @default(false)
+  type      String?  // "VPN", "Residential", "Datacenter", "Web Proxy"
+  provider  String?  // "NordVPN", "ExpressVPN", etc.
+  country   String?  // ISO 3166-1 alpha-2: "US", "GB"
+  riskLevel String   @default("low") @map("risk_level") // "low", "medium", "high"
+  checkedAt DateTime @default(now()) @map("checked_at")
+
+  @@index([checkedAt])
+  @@map("ip_intel_cache")
+}
