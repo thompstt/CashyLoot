@@ -187,3 +187,31 @@ model RateLimit {
 
   @@map("rate_limit")
 }
+
+// ============================================
+// Application-Level Rate Limiter Storage
+// ============================================
+// Separate from Better Auth's RateLimit table on purpose: this one is
+// managed entirely by our own code (src/lib/rate-limit.ts) and has a
+// different schema shape. Better Auth owns its rate_limit table; we own
+// this one. Two tables means zero risk of schema conflicts when Better
+// Auth updates its storage contract.
+//
+// Used for business-logic rate limits that Better Auth doesn't know how
+// to express: per-user vault opens, future per-user withdraw limits,
+// per-provider offerwall postback limits, etc.
+//
+// Key format is caller-chosen, e.g. "vault-open:user:${userId}". The
+// fixed-window approach is simple and correct under concurrency via
+// Postgres INSERT ... ON CONFLICT row locking — see the helper source
+// for the exact upsert pattern.
+
+model AppRateLimit {
+  key         String @id
+  count       Int    @default(1)
+  windowStart BigInt @map("window_start") // ms-epoch timestamp
+  updatedAt   BigInt @map("updated_at")   // ms-epoch timestamp, for cleanup jobs
+
+  @@index([updatedAt])
+  @@map("app_rate_limit")
+}

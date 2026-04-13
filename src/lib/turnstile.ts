@@ -35,8 +35,12 @@ export async function verifyTurnstileToken(token: string | null): Promise<{ succ
 
     return { success: true };
   } catch (error) {
-    // Fail open: if Cloudflare is unreachable, allow the request but log it
-    console.error("[Turnstile] Verification failed, allowing request:", error);
-    return { success: true };
+    // Fail CLOSED: if Cloudflare is unreachable, reject the request. Failing
+    // open would let an attacker who can block outbound HTTPS (e.g., DNS
+    // poisoning on the server side, or a compromised proxy) bypass bot
+    // protection entirely. Rejecting is the safer default — a Cloudflare
+    // outage is rare and short-lived; a bypass exploit is permanent damage.
+    console.error("[Turnstile] Verification failed, rejecting request:", error);
+    return { success: false, error: "Bot verification unavailable — please try again" };
   }
 }
