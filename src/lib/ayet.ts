@@ -16,6 +16,20 @@ export const AYET_IP_WHITELIST = new Set([
   "52.40.3.140",
 ]);
 
+// Additional IPs allowed only when AYET_TEST_IPS is set (dev/staging).
+// Intended for ayeT's "Send Test Callback" dashboard tool, which sends from
+// a different IP than production callback servers.
+export function isAllowedAyetIp(ip: string): boolean {
+  if (AYET_IP_WHITELIST.has(ip)) return true;
+  const extra = env.AYET_TEST_IPS;
+  if (!extra) return false;
+  return extra
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .includes(ip);
+}
+
 // ---------------------------------------------------------------------------
 // HMAC-SHA256 Verification
 // ---------------------------------------------------------------------------
