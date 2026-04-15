@@ -3,9 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
-  AYET_IP_WHITELIST,
   MAX_CURRENCY_AMOUNT,
   convertToPoints,
+  isAllowedAyetIp,
   verifyAyetHmac,
 } from "@/lib/ayet";
 
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
   const ip = getClientIp(request.headers);
 
   // ── Step 1-2: IP whitelist ──────────────────────────────────────────────
-  if (!AYET_IP_WHITELIST.has(ip)) {
+  if (!isAllowedAyetIp(ip)) {
     console.warn(`[postback/ayet] IP rejected: ${ip}`);
     prisma.fraudEvent
       .create({

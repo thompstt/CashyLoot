@@ -8,6 +8,7 @@ const serverSchema = z.object({
   SES_REGION: z.string().min(1),
   SES_FROM_EMAIL: z.string().email(),
   AYET_API_KEY: z.string().min(1),
+  AYET_TEST_IPS: z.string().optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
