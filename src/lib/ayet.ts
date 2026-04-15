@@ -92,3 +92,21 @@ export const AYET_POINTS_PER_CURRENCY = 1;
 export function convertToPoints(currencyAmount: number): number {
   return Math.round(currencyAmount * AYET_POINTS_PER_CURRENCY);
 }
+
+// ---------------------------------------------------------------------------
+// Surveywall API (publisher-side fetch)
+// ---------------------------------------------------------------------------
+
+export const AYET_SURVEYWALL_BASE =
+  "https://www.ayetstudios.com/surveys/surveywall_api";
+
+/**
+ * Build a Surveywall API URL for a given user. Profiling params are not yet
+ * sent (MVP) — when added, they must be HMAC-SHA256 signed with
+ * AYET_PROFILING_HASH and appended as `hash=`.
+ */
+export function buildSurveywallUrl(userId: string): string {
+  const url = new URL(`${AYET_SURVEYWALL_BASE}/${env.AYET_ADSLOT_ID}`);
+  url.searchParams.set("external_identifier", userId);
+  return url.toString();
+}
