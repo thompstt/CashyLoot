@@ -38,18 +38,29 @@ export function isAllowedAyetIp(ip: string): boolean {
 // string, HMAC-SHA256 with the Publisher API Key.
 // https://docs.ayetstudios.com/v/product-docs/callbacks-and-testing/callback-verification/hmac-security-hash-optional
 
+// URL-form-encode a value per ayeT spec (spaces → "+", not "%20").
+function formEncodeValue(v: string): string {
+  return encodeURIComponent(v).replace(/%20/g, "+");
+}
+
 export function verifyAyetHmac(
-  params: Record<string, string>,
+  entries: Array<[string, string]>,
   headerHash: string,
 ): boolean {
-  // Build the canonical string: sort keys alphabetically, URL-encode values
-  const sorted = Object.keys(params)
-    .sort()
-    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-    .join("&");
+  // Sort alphabetically by key (stable — ties preserve insertion order so
+  // duplicate params like payout_usd=0&payout_usd=0 stay in original order).
+  const sorted = [...entries].sort((a, b) => {
+    if (a[0] < b[0]) return -1;
+    if (a[0] > b[0]) return 1;
+    return 0;
+  });
+
+  // Keys are sent raw (ayeT keys are snake_case, no special chars); only
+  // values are URL-form-encoded.
+  const canonical = sorted.map(([k, v]) => `${k}=${formEncodeValue(v)}`).join("&");
 
   const computed = createHmac("sha256", env.AYET_API_KEY)
-    .update(sorted)
+    .update(canonical)
     .digest("hex");
 
   // Timing-safe comparison to prevent timing attacks
