@@ -81,12 +81,16 @@ export async function GET(request: NextRequest) {
 
   // ── Step 3: HMAC-SHA256 verification ────────────────────────────────────
   const securityHash = request.headers.get("x-ayetstudios-security-hash");
+  // Preserve all entries (including duplicates like payout_usd=0&payout_usd=0)
+  // for HMAC computation. The schema parse below uses the de-duplicated view.
+  const entries: Array<[string, string]> = [];
   const rawParams: Record<string, string> = {};
   request.nextUrl.searchParams.forEach((value, key) => {
+    entries.push([key, value]);
     rawParams[key] = value;
   });
 
-  if (!securityHash || !verifyAyetHmac(rawParams, securityHash)) {
+  if (!securityHash || !verifyAyetHmac(entries, securityHash)) {
     console.warn(
       `[postback/ayet] HMAC failed from ${ip}, hasHeader=${!!securityHash}, txn=${rawParams.transaction_id}`,
     );
