@@ -13,20 +13,28 @@ import {
 // Zod schema for ayeT callback query params
 // ---------------------------------------------------------------------------
 
-const ayetCallbackSchema = z.object({
-  external_identifier: z.string().min(1),
-  transaction_id: z.string().min(1),
-  currency_amount: z.coerce
-    .number()
-    .refine((v) => Math.abs(v) <= MAX_CURRENCY_AMOUNT, {
-      message: `currency_amount exceeds max of ${MAX_CURRENCY_AMOUNT}`,
-    }),
-  is_chargeback: z.coerce.number().int().min(0).max(1).default(0),
-  payout_usd: z.coerce.number().optional(),
-  survey_id: z.string().optional(),
-  offer_name: z.string().optional(),
-  chargeback_reason: z.string().optional(),
-});
+// Surveywall API sends external_identifier; Static API placement sends uid.
+// Either one is our publisher-side user ID.
+const ayetCallbackSchema = z
+  .object({
+    external_identifier: z.string().min(1).optional(),
+    uid: z.string().min(1).optional(),
+    transaction_id: z.string().min(1),
+    currency_amount: z.coerce
+      .number()
+      .refine((v) => Math.abs(v) <= MAX_CURRENCY_AMOUNT, {
+        message: `currency_amount exceeds max of ${MAX_CURRENCY_AMOUNT}`,
+      }),
+    is_chargeback: z.coerce.number().int().min(0).max(1).default(0),
+    payout_usd: z.coerce.number().optional(),
+    survey_id: z.string().optional(),
+    offer_id: z.string().optional(),
+    offer_name: z.string().optional(),
+    chargeback_reason: z.string().optional(),
+  })
+  .refine((d) => d.external_identifier || d.uid, {
+    message: "Missing user identifier (expected external_identifier or uid)",
+  });
 
 // ---------------------------------------------------------------------------
 // Rate limit constants
@@ -53,6 +61,7 @@ export async function GET(request: NextRequest) {
 
   // ── Step 1-2: IP whitelist ──────────────────────────────────────────────
   if (!AYET_IP_WHITELIST.has(ip)) {
+    console.warn(`[postback/ayet] IP rejected: ${ip}`);
     prisma.fraudEvent
       .create({
         data: {
@@ -78,6 +87,9 @@ export async function GET(request: NextRequest) {
   });
 
   if (!securityHash || !verifyAyetHmac(rawParams, securityHash)) {
+    console.warn(
+      `[postback/ayet] HMAC failed from ${ip}, hasHeader=${!!securityHash}, txn=${rawParams.transaction_id}`,
+    );
     prisma.fraudEvent
       .create({
         data: {
@@ -131,12 +143,14 @@ export async function GET(request: NextRequest) {
   }
 
   const {
-    external_identifier: userId,
+    external_identifier,
+    uid,
     transaction_id: transactionId,
     currency_amount: currencyAmount,
     is_chargeback: isChargeback,
     survey_id: surveyId,
   } = parseResult.data;
+  const userId = external_identifier ?? uid!;
 
   // ── Step 5: Rate limiting ───────────────────────────────────────────────
   const [userLimit, globalLimit] = await Promise.all([
