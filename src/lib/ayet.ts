@@ -54,11 +54,14 @@ export function verifyAyetHmac(
 // Currency Conversion
 // ---------------------------------------------------------------------------
 
-/** No single survey callback should exceed this amount (absolute value). */
-export const MAX_CURRENCY_AMOUNT = 50;
+// ayeT adslot currency is configured as 1 Point = our 1 point (100 Points = $1 USD,
+// 0 decimals). currency_amount arrives as an integer point count; we credit 1:1.
 
-/** Points credited per 1.0 unit of ayeT currency. */
-export const AYET_POINTS_PER_CURRENCY = 100;
+/** No single survey callback should exceed this amount (absolute value). 5000 pts = $50. */
+export const MAX_CURRENCY_AMOUNT = 5000;
+
+/** Points credited per 1.0 unit of ayeT currency (1:1 since ayeT currency = our points). */
+export const AYET_POINTS_PER_CURRENCY = 1;
 
 /** Convert ayeT currency_amount to CashyLoot points. Preserves sign. */
 export function convertToPoints(currencyAmount: number): number {
