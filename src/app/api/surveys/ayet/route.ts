@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getActiveSession } from "@/lib/session";
-import { assertRateLimit, RateLimitError } from "@/lib/rate-limit";
+import { assertRateLimit, getClientIp, RateLimitError } from "@/lib/rate-limit";
 import { buildSurveywallUrl } from "@/lib/ayet";
 import type {
   AyetSurveyOffer,
@@ -29,20 +29,24 @@ export async function GET(request: NextRequest) {
     throw e;
   }
 
-  const upstreamUrl = buildSurveywallUrl(session.user.id);
-  const userAgent = request.headers.get("user-agent") ?? "";
-  const acceptLanguage =
-    request.headers.get("accept-language") ?? "en-US,en;q=0.9";
+  // ayeT uses these query params (not headers) for targeting on server-side
+  // calls — headers would describe our Amplify region, not the end user.
+  const ip = getClientIp(request.headers);
+  const userAgent = request.headers.get("user-agent") ?? undefined;
+  const language = request.headers.get("accept-language") ?? undefined;
+  const clientHints = request.headers.get("sec-ch-ua") ?? undefined;
+
+  const upstreamUrl = buildSurveywallUrl({
+    userId: session.user.id,
+    ip,
+    userAgent,
+    language,
+    clientHints,
+  });
 
   let upstream: Response;
   try {
-    upstream = await fetch(upstreamUrl, {
-      headers: {
-        "User-Agent": userAgent,
-        "Accept-Language": acceptLanguage,
-      },
-      cache: "no-store",
-    });
+    upstream = await fetch(upstreamUrl, { cache: "no-store" });
   } catch (err) {
     console.error("[api/surveys/ayet] upstream fetch failed:", err);
     return NextResponse.json<AyetSurveysApiResponse>(
