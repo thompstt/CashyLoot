@@ -66,7 +66,7 @@ export async function getIpIntelligence(ip: string): Promise<IpIntelResult> {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      console.error(`[ip-intel] proxycheck.io returned ${res.status} for ${ip}`);
+      console.error("[ip-intel] proxycheck.io error:", { status: res.status, ip });
       return fallback(ip);
     }
 

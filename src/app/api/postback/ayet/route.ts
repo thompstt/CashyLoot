@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
   // ── IP whitelist ────────────────────────────────────────────────────────
   if (!isAllowedAyetIp(ip)) {
-    console.warn(`[postback/ayet] IP rejected: ${ip}`);
+    console.warn("[postback/ayet] IP rejected:", { ip });
     logFraudEvent(null, "postback_ip_rejected", { provider: "ayet", ip, endpoint: "/api/postback/ayet" });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -79,9 +79,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!securityHash || !verifyAyetHmac(entries, securityHash)) {
-    console.warn(
-      `[postback/ayet] HMAC failed from ${ip}, hasHeader=${!!securityHash}, txn=${rawParams.transaction_id}`,
-    );
+    console.warn("[postback/ayet] HMAC failed:", { ip, hasHeader: !!securityHash, txn: rawParams.transaction_id });
     logFraudEvent(null, "postback_hmac_failed", { provider: "ayet", ip, hasHeader: !!securityHash });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -138,9 +136,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!user) {
-    console.warn(
-      `[postback/ayet] user not found: ${userId}, txn: ${transactionId}`,
-    );
+    console.warn("[postback/ayet] user not found:", { userId, transactionId });
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
