@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { logFraudEvent } from "@/lib/fraud";
 import {
   MAX_CURRENCY_AMOUNT,
   convertToPoints,
@@ -59,23 +60,10 @@ const EXCESSIVE_CHARGEBACK_THRESHOLD = -10_000; // points
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request.headers);
 
-  // ── Step 1-2: IP whitelist ──────────────────────────────────────────────
+  // ── IP whitelist ────────────────────────────────────────────────────────
   if (!isAllowedAyetIp(ip)) {
     console.warn(`[postback/ayet] IP rejected: ${ip}`);
-    prisma.fraudEvent
-      .create({
-        data: {
-          eventType: "postback_ip_rejected",
-          details: JSON.stringify({
-            provider: "ayet",
-            ip,
-            endpoint: "/api/postback/ayet",
-          }),
-        },
-      })
-      .catch((err) =>
-        console.error("[postback/ayet] failed to log IP rejection", err),
-      );
+    logFraudEvent(null, "postback_ip_rejected", { provider: "ayet", ip, endpoint: "/api/postback/ayet" });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -94,20 +82,7 @@ export async function GET(request: NextRequest) {
     console.warn(
       `[postback/ayet] HMAC failed from ${ip}, hasHeader=${!!securityHash}, txn=${rawParams.transaction_id}`,
     );
-    prisma.fraudEvent
-      .create({
-        data: {
-          eventType: "postback_hmac_failed",
-          details: JSON.stringify({
-            provider: "ayet",
-            ip,
-            hasHeader: !!securityHash,
-          }),
-        },
-      })
-      .catch((err) =>
-        console.error("[postback/ayet] failed to log HMAC failure", err),
-      );
+    logFraudEvent(null, "postback_hmac_failed", { provider: "ayet", ip, hasHeader: !!securityHash });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -122,21 +97,9 @@ export async function GET(request: NextRequest) {
     );
 
     if (isBoundsViolation) {
-      prisma.fraudEvent
-        .create({
-          data: {
-            eventType: "suspicious_postback_amount",
-            details: JSON.stringify({
-              provider: "ayet",
-              ip,
-              rawAmount: rawParams.currency_amount,
-              max: MAX_CURRENCY_AMOUNT,
-            }),
-          },
-        })
-        .catch((err) =>
-          console.error("[postback/ayet] failed to log amount violation", err),
-        );
+      logFraudEvent(null, "suspicious_postback_amount", {
+        provider: "ayet", ip, rawAmount: rawParams.currency_amount, max: MAX_CURRENCY_AMOUNT,
+      });
     }
 
     console.warn(
@@ -164,22 +127,7 @@ export async function GET(request: NextRequest) {
 
   if (!userLimit.allowed || !globalLimit.allowed) {
     const limitType = !userLimit.allowed ? "per_user" : "global";
-    prisma.fraudEvent
-      .create({
-        data: {
-          userId,
-          eventType: "postback_rate_limited",
-          details: JSON.stringify({
-            provider: "ayet",
-            limitType,
-            transactionId,
-          }),
-        },
-      })
-      .catch((err) =>
-        console.error("[postback/ayet] failed to log rate limit event", err),
-      );
-    // Return 200 to stop ayeT retries — we're dropping this on purpose
+    logFraudEvent(userId, "postback_rate_limited", { provider: "ayet", limitType, transactionId });
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -288,44 +236,21 @@ export async function GET(request: NextRequest) {
     })
     .then((hourlyCount) => {
       if (hourlyCount >= VELOCITY_THRESHOLD) {
-        prisma.fraudEvent
-          .create({
-            data: {
-              userId,
-              eventType: "high_velocity_postback",
-              details: JSON.stringify({
-                provider: "ayet",
-                count: hourlyCount,
-                window: "1h",
-                threshold: VELOCITY_THRESHOLD,
-              }),
-            },
-          })
-          .catch(() => {});
+        logFraudEvent(userId, "high_velocity_postback", {
+          provider: "ayet", count: hourlyCount, window: "1h", threshold: VELOCITY_THRESHOLD,
+        });
       }
     })
     .catch(() => {});
 
-  // Check for excessive chargebacks
   if (isReversal) {
     prisma.user
       .findUnique({ where: { id: userId }, select: { balance: true } })
       .then((u) => {
         if (u && u.balance < EXCESSIVE_CHARGEBACK_THRESHOLD) {
-          prisma.fraudEvent
-            .create({
-              data: {
-                userId,
-                eventType: "excessive_chargeback",
-                details: JSON.stringify({
-                  provider: "ayet",
-                  balance: u.balance,
-                  threshold: EXCESSIVE_CHARGEBACK_THRESHOLD,
-                  transactionId,
-                }),
-              },
-            })
-            .catch(() => {});
+          logFraudEvent(userId, "excessive_chargeback", {
+            provider: "ayet", balance: u.balance, threshold: EXCESSIVE_CHARGEBACK_THRESHOLD, transactionId,
+          });
         }
       })
       .catch(() => {});
