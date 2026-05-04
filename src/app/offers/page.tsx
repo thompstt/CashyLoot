@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MessageSquare,
   Gamepad2,
@@ -19,10 +19,23 @@ import {
   Clock,
   ArrowUpDown,
   Flame,
+  HeartPulse,
+  Car,
+  Home,
+  Briefcase,
+  GraduationCap,
+  Plane,
+  Utensils,
+  Baby,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type {
+  AyetProfiler,
+  AyetSurveysApiResponse,
+  AyetSurveyOffer,
+} from "@/types/ayet";
 
 type Category =
   | "all"
@@ -51,16 +64,38 @@ const sortOptions: { value: SortOption; label: string }[] = [
   { value: "newest", label: "Newest" },
 ];
 
-type Provider = "AdGem" | "Lootably" | "BitLabs";
+type Provider = "AdGem" | "Lootably" | "BitLabs" | "ayeT";
 
 const providerStyles: Record<Provider, string> = {
   AdGem: "bg-cyan/10 text-cyan border-cyan/20",
   Lootably: "bg-purple/10 text-purple border-purple/20",
   BitLabs: "bg-green/10 text-green border-green/20",
+  ayeT: "bg-amber/10 text-amber border-amber/20",
+};
+
+// Maps ayeT category slugs (lowercased) to a lucide icon. Unknown slugs
+// fall back to ClipboardList.
+const ayetCategoryIcons: Record<string, React.ElementType> = {
+  health: HeartPulse,
+  "health & medical": HeartPulse,
+  shopping: ShoppingCart,
+  finance: CreditCard,
+  "finance & banking": CreditCard,
+  automotive: Car,
+  "home & garden": Home,
+  work: Briefcase,
+  business: Briefcase,
+  education: GraduationCap,
+  travel: Plane,
+  "food & drink": Utensils,
+  family: Baby,
+  entertainment: Film,
+  gaming: Gamepad2,
+  technology: Smartphone,
 };
 
 interface MockOffer {
-  id: number;
+  id: number | string;
   title: string;
   description: string;
   category: Category;
@@ -71,6 +106,36 @@ interface MockOffer {
   iconColor: string;
   featured?: boolean;
   hot?: boolean;
+  startUrl?: string;
+}
+
+function ayetToMockOffer(o: AyetSurveyOffer): MockOffer {
+  const Icon = ayetCategoryIcons[o.iconSlug] ?? ClipboardList;
+  return {
+    id: o.id,
+    title: o.title,
+    description: o.description,
+    category: "surveys",
+    provider: "ayeT",
+    points: o.points,
+    minutes: o.minutes,
+    icon: Icon,
+    iconColor: "bg-amber/10 text-amber",
+    hot: o.isNew,
+    startUrl: o.startUrl,
+  };
+}
+
+function sortOffersNewest(offers: MockOffer[]): MockOffer[] {
+  // "newest" sorts by numeric id desc for mocks; ayeT ids ("ayet-123") sort
+  // lexicographically after all numeric ids, which keeps them at the top.
+  return [...offers].sort((a, b) => {
+    const aStr = String(a.id);
+    const bStr = String(b.id);
+    if (aStr < bStr) return 1;
+    if (aStr > bStr) return -1;
+    return 0;
+  });
 }
 
 const mockOffers: MockOffer[] = [
@@ -247,24 +312,53 @@ function sortOffers(offers: MockOffer[], sort: SortOption): MockOffer[] {
     case "quickest":
       return [...offers].sort((a, b) => a.minutes - b.minutes);
     case "newest":
-      return [...offers].sort((a, b) => b.id - a.id);
+      return sortOffersNewest(offers);
   }
 }
 
 export default function OffersPage() {
   const [activeCategory, setActiveCategory] = useState<Category>("all");
   const [activeSort, setActiveSort] = useState<SortOption>("highest");
+  const [ayetOffers, setAyetOffers] = useState<AyetSurveyOffer[]>([]);
+  const [ayetProfiler, setAyetProfiler] = useState<AyetProfiler | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/surveys/ayet")
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((data: AyetSurveysApiResponse) => {
+        if (cancelled || !data.success) return;
+        setAyetOffers(data.surveys ?? []);
+        setAyetProfiler(data.profiler ?? null);
+      })
+      .catch(() => {
+        // Silent — ayeT being unreachable shouldn't break the page.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const allOffers: MockOffer[] = [
+    ...ayetOffers.map(ayetToMockOffer),
+    ...mockOffers,
+  ];
 
   const filtered =
     activeCategory === "all"
-      ? mockOffers
-      : mockOffers.filter((o) => o.category === activeCategory);
+      ? allOffers
+      : allOffers.filter((o) => o.category === activeCategory);
 
   const sorted = sortOffers(filtered, activeSort);
 
   // Featured offer is always the highest-paying one with featured flag
   const featuredOffer = mockOffers.find((o) => o.featured);
   const regularOffers = sorted.filter((o) => o.id !== featuredOffer?.id);
+
+  const showProfilerPrompt =
+    (activeCategory === "all" || activeCategory === "surveys") &&
+    ayetProfiler?.missing_profiler === true &&
+    ayetOffers.length === 0;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -360,6 +454,26 @@ export default function OffersPage() {
         </div>
       </div>
 
+      {/* Profiler prompt — shown when ayeT says we need a survey profile */}
+      {showProfilerPrompt && (
+        <Card className="mb-6 border-amber/20 bg-gradient-to-br from-amber/[0.04] to-transparent">
+          <CardContent className="pt-6 pb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber/10 text-amber">
+              <ClipboardList className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold">Unlock more surveys</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Complete your survey profile to qualify for higher-paying surveys.
+              </p>
+            </div>
+            <Button variant="outline" disabled>
+              Coming soon
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Offer Grid */}
       {regularOffers.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -427,6 +541,15 @@ export default function OffersPage() {
                         size="sm"
                         className={`h-7 text-xs ${isHighValue ? "btn-gradient" : ""}`}
                         variant={isHighValue ? "default" : "outline"}
+                        onClick={() => {
+                          if (offer.startUrl) {
+                            window.open(
+                              offer.startUrl,
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
+                          }
+                        }}
                       >
                         Start
                       </Button>

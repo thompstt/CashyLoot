@@ -7,6 +7,10 @@ const serverSchema = z.object({
   TURNSTILE_SECRET_KEY: z.string().min(1),
   SES_REGION: z.string().min(1),
   SES_FROM_EMAIL: z.string().email(),
+  AYET_API_KEY: z.string().min(1),
+  AYET_TEST_IPS: z.string().optional(),
+  AYET_ADSLOT_ID: z.string().min(1),
+  AYET_PROFILING_HASH: z.string().optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 

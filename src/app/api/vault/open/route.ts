@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { rollPrize, getVaultConfig, VALID_TIERS } from "@/lib/vault";
+import { rollPrize, getVaultConfig } from "@/lib/vault";
 import { assertRateLimit, RateLimitError } from "@/lib/rate-limit";
 import { getActiveSession } from "@/lib/session";
-import type { VaultOpenResponse, VaultTier } from "@/types/api";
+import { logFraudEvent } from "@/lib/fraud";
+import type { VaultOpenResponse } from "@/types/api";
 
 const vaultOpenSchema = z.object({
   tier: z.enum(["bronze", "silver", "gold"]),
@@ -45,22 +46,11 @@ export async function POST(request: NextRequest) {
     );
   } catch (e) {
     if (e instanceof RateLimitError) {
-      // Log to FraudEvent so abuse shows up in audit queries. The insert is
-      // fire-and-forget — if it fails we still want to return the 429 to
-      // the client, not crash the request.
-      await prisma.fraudEvent.create({
-        data: {
-          userId: session.user.id,
-          eventType: "rate_limit",
-          details: JSON.stringify({
-            endpoint: "/api/vault/open",
-            max: VAULT_RATE_LIMIT_MAX,
-            windowSec: VAULT_RATE_LIMIT_WINDOW_SEC,
-            resetAt: e.resetAt.toISOString(),
-          }),
-        },
-      }).catch((err) => {
-        console.error("[vault-open] failed to log rate limit event", err);
+      logFraudEvent(session.user.id, "rate_limit", {
+        endpoint: "/api/vault/open",
+        max: VAULT_RATE_LIMIT_MAX,
+        windowSec: VAULT_RATE_LIMIT_WINDOW_SEC,
+        resetAt: e.resetAt.toISOString(),
       });
 
       const retryAfterSec = Math.max(
@@ -161,12 +151,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Hourly velocity detection (non-blocking, runs after success) ──
-  // If the user has opened >100 vaults in the past hour, log a FraudEvent.
-  // This doesn't block the request — the per-minute rate limit already caps
-  // automation. This catches sustained high-frequency abuse that stays under
-  // the per-minute limit (e.g., 19 opens every minute for an hour = 1140).
-  // Fire-and-forget: don't delay the response for detection logic.
   prisma.vaultOpening.count({
     where: {
       userId: session.user.id,
@@ -174,17 +158,9 @@ export async function POST(request: NextRequest) {
     },
   }).then((hourlyCount) => {
     if (hourlyCount >= 100) {
-      prisma.fraudEvent.create({
-        data: {
-          userId: session.user.id,
-          eventType: "high_velocity_vault",
-          details: JSON.stringify({
-            count: hourlyCount,
-            window: "1h",
-            threshold: 100,
-          }),
-        },
-      }).catch(() => {});
+      logFraudEvent(session.user.id, "high_velocity_vault", {
+        count: hourlyCount, window: "1h", threshold: 100,
+      });
     }
   }).catch(() => {});
 
